@@ -7,6 +7,7 @@
  */
 
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import type {
   BlenderBuildingPlacement,
@@ -43,7 +44,21 @@ interface LoadedModelLods {
   readonly lod2: readonly ModelPart[];
 }
 
+export interface BlenderChunkLod2Group {
+  readonly mesh: THREE.BatchedMesh;
+  readonly noShadowCast: boolean;
+  readonly cellInstanceIds: readonly (readonly number[])[];
+}
+
+export interface BlenderChunkLod2Batch {
+  readonly meshes: THREE.Mesh[];
+  readonly groups: readonly BlenderChunkLod2Group[];
+  lastMask: number;
+  lastShadowMask: number;
+}
+
 export interface BlenderQuadrantCell {
+  readonly cellIndex: number;
   readonly centerX: number;
   readonly centerZ: number;
   readonly halfExtentX: number;
@@ -98,13 +113,13 @@ export class BlenderBuildingRenderer {
       const cz = entry.centerOffsetZ ?? 0;
       tasks.push(
         loadModel(new URL(`${entry.key}-lod0.glb`, this.baseUrl).href, 35).then((gltf) => {
-          lod0Parts.set(entry.key, this.extractSharedParts(gltf, cx, cz));
+          lod0Parts.set(entry.key, this.extractSharedParts(gltf, cx, cz, false));
         }),
         loadModel(new URL(`${entry.key}-lod1.glb`, this.baseUrl).href, 35).then((gltf) => {
-          lod1Parts.set(entry.key, this.extractSharedParts(gltf, cx, cz));
+          lod1Parts.set(entry.key, this.extractSharedParts(gltf, cx, cz, true));
         }),
         loadModel(new URL(`${entry.key}-lod2.glb`, this.baseUrl).href, 35).then((gltf) => {
-          lod2Parts.set(entry.key, this.extractSharedParts(gltf, cx, cz));
+          lod2Parts.set(entry.key, this.extractSharedParts(gltf, cx, cz, true));
         }),
       );
     }
@@ -121,17 +136,39 @@ export class BlenderBuildingRenderer {
     this.ready = this.models.size > 0;
   }
 
-  private extractSharedParts(gltf: GLTF, offsetX: number, offsetZ: number): ModelPart[] {
+  private extractSharedParts(
+    gltf: GLTF,
+    offsetX: number,
+    offsetZ: number,
+    forLod2: boolean,
+  ): ModelPart[] {
     gltf.scene.updateMatrixWorld(true);
     const parts: ModelPart[] = [];
     gltf.scene.traverse((node) => {
       if (!(node instanceof THREE.Mesh)) return;
       const srcMat = Array.isArray(node.material) ? node.material[0] : node.material;
       if (!srcMat) return;
-      const sharedMat = this.internSharedAtlasMaterial(srcMat);
+      const sharedMat = this.internSharedAtlasMaterial(srcMat, forLod2);
       const geometry = node.geometry.clone();
       geometry.applyMatrix4(node.matrixWorld);
       if (offsetX !== 0 || offsetZ !== 0) geometry.translate(-offsetX, 0, -offsetZ);
+      if (forLod2) {
+        if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
+        if (!geometry.getAttribute('uv')) {
+          const count = geometry.getAttribute('position')?.count ?? 0;
+          geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(count * 2), 2));
+        }
+        for (const attr of Object.keys(geometry.attributes)) {
+          if (attr !== 'position' && attr !== 'normal' && attr !== 'uv') {
+            geometry.deleteAttribute(attr);
+          }
+        }
+        if (!geometry.getIndex()) {
+          const count = geometry.getAttribute('position')?.count ?? 0;
+          const seq = Array.from({ length: count }, (_, i) => i);
+          geometry.setIndex(seq);
+        }
+      }
       geometry.computeBoundingSphere();
       geometry.userData.sharedGeometry = true;
       parts.push({ geometry, material: sharedMat });
@@ -139,8 +176,9 @@ export class BlenderBuildingRenderer {
     return parts;
   }
 
-  private internSharedAtlasMaterial(source: THREE.Material): THREE.Material {
-    const key = source.name.startsWith('CC_Atlas_Glass') ? 'CC_Atlas_Glass' : 'CC_Atlas_Opaque';
+  private internSharedAtlasMaterial(source: THREE.Material, forLod2 = false): THREE.Material {
+    const baseKey = source.name.startsWith('CC_Atlas_Glass') ? 'CC_Atlas_Glass' : 'CC_Atlas_Opaque';
+    const key = forLod2 ? `${baseKey}_LOD2` : baseKey;
     const existing = this.sharedMaterials.get(key);
     if (existing) return existing;
 
@@ -157,8 +195,26 @@ export class BlenderBuildingRenderer {
         tex.generateMipmaps = false;
         tex.needsUpdate = true;
       }
-      if (key === 'CC_Atlas_Glass') {
+      if (forLod2) {
+        // Lightweight Standard PBR at LOD1/LOD2 preserves full atlas PBR maps without physical shader branches.
+        const lite = new THREE.MeshStandardMaterial({
+          name: source.name,
+          map: source.map,
+          roughnessMap: source.roughnessMap,
+          metalnessMap: source.metalnessMap,
+          roughness: source.roughness,
+          metalness: source.metalness,
+          emissive: source.emissive,
+          emissiveMap: source.emissiveMap,
+          emissiveIntensity: baseKey === 'CC_Atlas_Glass' ? 0.45 : source.emissiveIntensity,
+        });
+        lite.userData.noShadowCast = baseKey === 'CC_Atlas_Glass';
+        this.sharedMaterials.set(key, lite);
+        return lite;
+      }
+      if (baseKey === 'CC_Atlas_Glass') {
         source.emissiveIntensity = 0.45;
+        source.userData.noShadowCast = true;
       }
     }
     this.sharedMaterials.set(key, source);
@@ -198,8 +254,10 @@ export class BlenderBuildingRenderer {
     for (const part of parts) {
       part.geometry.userData.sharedGeometry = true;
       const mat = overrideMaterial ?? part.material;
-      const useTint = !shadowOnlyLayer && !mat.transparent;
+      const noShadowCast = mat.userData.noShadowCast === true;
+      const useTint = !shadowOnlyLayer && !mat.transparent && !noShadowCast;
       const mesh = new THREE.InstancedMesh(part.geometry, mat, items.length);
+      mesh.userData.noShadowCast = noShadowCast;
       for (let i = 0; i < items.length; i += 1) {
         const item = items[i];
         if (!item) continue;
@@ -216,7 +274,7 @@ export class BlenderBuildingRenderer {
       mesh.instanceMatrix.needsUpdate = true;
       if (useTint && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       mesh.computeBoundingSphere();
-      mesh.castShadow = shadowOnlyLayer;
+      mesh.castShadow = shadowOnlyLayer && !noShadowCast;
       mesh.receiveShadow = !shadowOnlyLayer;
       mesh.visible = false;
       if (shadowOnlyLayer) {
@@ -266,6 +324,11 @@ export class BlenderBuildingRenderer {
 
     const proxyMaterial = this.getShadowProxyMaterial();
     const cells: BlenderQuadrantCell[] = [];
+    const proxyMatrix = new THREE.Matrix4();
+    const proxyPos = new THREE.Vector3();
+    const proxyQuat = new THREE.Quaternion();
+    const proxyScale = new THREE.Vector3();
+    const yAxis = new THREE.Vector3(0, 1, 0);
 
     for (let idx = 0; idx < SUBCELL_DIVS * SUBCELL_DIVS; idx += 1) {
       const list = buckets[idx];
@@ -286,6 +349,7 @@ export class BlenderBuildingRenderer {
       const lod1Meshes: THREE.Mesh[] = [];
       const lod2Meshes: THREE.Mesh[] = [];
       const shadowProxies: THREE.Mesh[] = [];
+      const proxyGeos: THREE.BufferGeometry[] = [];
 
       for (const [key, items] of byModel) {
         const loaded = this.models.get(key);
@@ -295,12 +359,49 @@ export class BlenderBuildingRenderer {
         this.appendModelInstancedMeshes(loaded.lod1, items, null, false, lod1Meshes);
         this.appendModelInstancedMeshes(loaded.lod2, items, null, false, lod2Meshes);
 
-        const opaqueLod2 = loaded.lod2.filter((part) => !part.material.transparent);
+        const opaqueLod2 = loaded.lod2.filter(
+          (part) => !part.material.transparent && part.material.userData.noShadowCast !== true,
+        );
         const proxyParts = opaqueLod2.length > 0 ? opaqueLod2 : loaded.lod2.slice(0, 1);
-        this.appendModelInstancedMeshes(proxyParts, items, proxyMaterial, true, shadowProxies);
+        for (const part of proxyParts) {
+          const baseNonIndexed = part.geometry.index
+            ? part.geometry.toNonIndexed()
+            : part.geometry.clone();
+          for (const attr of Object.keys(baseNonIndexed.attributes)) {
+            if (attr !== 'position' && attr !== 'normal') baseNonIndexed.deleteAttribute(attr);
+          }
+          if (!baseNonIndexed.getAttribute('normal')) baseNonIndexed.computeVertexNormals();
+          for (const item of items) {
+            proxyPos.set(item.x, item.y, item.z);
+            proxyQuat.setFromAxisAngle(yAxis, item.heading);
+            proxyScale.set(item.scaleX, item.scaleY, item.scaleZ);
+            proxyMatrix.compose(proxyPos, proxyQuat, proxyScale);
+            const g = baseNonIndexed.clone();
+            g.applyMatrix4(proxyMatrix);
+            proxyGeos.push(g);
+          }
+          baseNonIndexed.dispose();
+        }
+      }
+
+      if (proxyGeos.length > 0) {
+        const merged = mergeGeometries(proxyGeos, false);
+        for (const g of proxyGeos) g.dispose();
+        if (merged) {
+          merged.computeBoundingSphere();
+          const proxyMesh = new THREE.Mesh(merged, proxyMaterial);
+          proxyMesh.castShadow = true;
+          proxyMesh.receiveShadow = false;
+          proxyMesh.visible = false;
+          proxyMesh.layers.set(SHADOW_PROXY_LAYER);
+          proxyMesh.matrixAutoUpdate = false;
+          proxyMesh.updateMatrix();
+          shadowProxies.push(proxyMesh);
+        }
       }
 
       cells.push({
+        cellIndex: cells.length,
         centerX: cellCx,
         centerZ: cellCz,
         halfExtentX,
@@ -313,6 +414,188 @@ export class BlenderBuildingRenderer {
     }
 
     return cells;
+  }
+
+  /**
+   * Build at most two chunk-wide BatchedMesh drawers (Opaque + Glass at LOD2) partitioned by subcell
+   * so all active LOD2 subcells across every building archetype render in 1-2 draw calls per chunk.
+   */
+  createChunkLod2Batch(
+    buildings: BuiltBuildingChunk | undefined,
+    bounds: ProjectedBounds,
+  ): BlenderChunkLod2Batch | undefined {
+    const placements = buildings?.blenderPlacements;
+    if (!this.ready || !placements || placements.length === 0) return undefined;
+
+    const SUBCELL_DIVS = 3;
+    const spanX = bounds.maxX - bounds.minX;
+    const spanZ = bounds.maxZ - bounds.minZ;
+    const cellSpanX = spanX / SUBCELL_DIVS;
+    const cellSpanZ = spanZ / SUBCELL_DIVS;
+
+    const rawBuckets: BlenderBuildingPlacement[][] = Array.from(
+      { length: SUBCELL_DIVS * SUBCELL_DIVS },
+      () => [],
+    );
+    for (const p of placements) {
+      const qx = Math.min(
+        SUBCELL_DIVS - 1,
+        Math.max(0, Math.floor((p.x - bounds.minX) / cellSpanX)),
+      );
+      const qz = Math.min(
+        SUBCELL_DIVS - 1,
+        Math.max(0, Math.floor((p.z - bounds.minZ) / cellSpanZ)),
+      );
+      rawBuckets[qz * SUBCELL_DIVS + qx]?.push(p);
+    }
+
+    const activeCellPlacements = rawBuckets.filter((b) => b.length > 0);
+    if (activeCellPlacements.length === 0) return undefined;
+
+    interface BatchAcc {
+      material: THREE.Material;
+      noShadowCast: boolean;
+      useTint: boolean;
+      uniqueGeos: THREE.BufferGeometry[];
+      partGeoIndex: Map<THREE.BufferGeometry, number>;
+      maxInstances: number;
+      maxVertices: number;
+      maxIndices: number;
+      itemsByCell: Array<Array<{ item: BlenderBuildingPlacement; geo: THREE.BufferGeometry }>>;
+    }
+
+    const accumulators = new Map<THREE.Material, BatchAcc>();
+    for (let cellIdx = 0; cellIdx < activeCellPlacements.length; cellIdx += 1) {
+      const list = activeCellPlacements[cellIdx]!;
+      for (const p of list) {
+        const loaded = this.models.get(p.modelKey);
+        if (!loaded) continue;
+        for (const part of loaded.lod2) {
+          let acc = accumulators.get(part.material);
+          if (!acc) {
+            const noShadowCast = part.material.userData.noShadowCast === true;
+            acc = {
+              material: part.material,
+              noShadowCast,
+              useTint: !part.material.transparent && !noShadowCast,
+              uniqueGeos: [],
+              partGeoIndex: new Map(),
+              maxInstances: 0,
+              maxVertices: 0,
+              maxIndices: 0,
+              itemsByCell: Array.from({ length: activeCellPlacements.length }, () => []),
+            };
+            accumulators.set(part.material, acc);
+          }
+          if (!acc.partGeoIndex.has(part.geometry)) {
+            acc.partGeoIndex.set(part.geometry, acc.uniqueGeos.length);
+            acc.uniqueGeos.push(part.geometry);
+            acc.maxVertices += part.geometry.getAttribute('position')?.count ?? 0;
+            acc.maxIndices +=
+              part.geometry.getIndex()?.count ?? part.geometry.getAttribute('position')?.count ?? 0;
+          }
+          acc.maxInstances += 1;
+          acc.itemsByCell[cellIdx]!.push({ item: p, geo: part.geometry });
+        }
+      }
+    }
+
+    const meshes: THREE.Mesh[] = [];
+    const groups: BlenderChunkLod2Group[] = [];
+    const matrix = new THREE.Matrix4();
+    const pos = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const tintColor = new THREE.Color();
+    const chunkCenter = new THREE.Vector3(
+      (bounds.minX + bounds.maxX) * 0.5,
+      440,
+      (bounds.minZ + bounds.maxZ) * 0.5,
+    );
+    const chunkRadius = Math.hypot(spanX * 0.5, spanZ * 0.5, 160);
+
+    for (const acc of accumulators.values()) {
+      if (acc.maxInstances === 0 || acc.uniqueGeos.length === 0) continue;
+      const batched = new THREE.BatchedMesh(
+        acc.maxInstances,
+        Math.max(3, acc.maxVertices),
+        Math.max(3, acc.maxIndices),
+        acc.material,
+      );
+      batched.perObjectFrustumCulled = false;
+      batched.sortObjects = false;
+      batched.userData.noShadowCast = acc.noShadowCast;
+      batched.receiveShadow = true;
+      batched.castShadow = false;
+      batched.visible = false;
+      batched.boundingSphere = new THREE.Sphere(chunkCenter.clone(), chunkRadius);
+
+      const geoIds = new Map<THREE.BufferGeometry, number>();
+      for (const g of acc.uniqueGeos) {
+        geoIds.set(g, batched.addGeometry(g));
+      }
+
+      const cellInstanceIds: number[][] = [];
+      for (let cellIdx = 0; cellIdx < acc.itemsByCell.length; cellIdx += 1) {
+        const entries = acc.itemsByCell[cellIdx]!;
+        const ids: number[] = [];
+        for (const { item, geo } of entries) {
+          const gid = geoIds.get(geo);
+          if (gid === undefined) continue;
+          const instId = batched.addInstance(gid);
+          pos.set(item.x, item.y, item.z);
+          quat.setFromAxisAngle(yAxis, item.heading);
+          scale.set(item.scaleX, item.scaleY, item.scaleZ);
+          matrix.compose(pos, quat, scale);
+          batched.setMatrixAt(instId, matrix);
+          if (acc.useTint) {
+            tintColor.setHex(item.tint ?? 0xffffff);
+            batched.setColorAt(instId, tintColor);
+          }
+          batched.setVisibleAt(instId, false);
+          ids.push(instId);
+        }
+        cellInstanceIds.push(ids);
+      }
+
+      meshes.push(batched);
+      groups.push({
+        mesh: batched,
+        noShadowCast: acc.noShadowCast,
+        cellInstanceIds,
+      });
+    }
+
+    return { meshes, groups, lastMask: -1, lastShadowMask: -1 };
+  }
+
+  updateChunkLod2Batch(
+    batch: BlenderChunkLod2Batch | undefined,
+    lod2Mask: number,
+    castShadow: boolean,
+  ): void {
+    if (!batch) return;
+    const shadowFlag = castShadow ? 1 : 0;
+    const prevMask = batch.lastMask === -1 ? 0 : batch.lastMask;
+    if (batch.lastMask === lod2Mask && batch.lastShadowMask === shadowFlag) return;
+    const changedMask = batch.lastMask === -1 ? ~0 : prevMask ^ lod2Mask;
+    batch.lastMask = lod2Mask;
+    batch.lastShadowMask = shadowFlag;
+
+    for (const group of batch.groups) {
+      if (changedMask !== 0) {
+        for (let c = 0; c < group.cellInstanceIds.length; c += 1) {
+          if ((changedMask & (1 << c)) === 0) continue;
+          const show = (lod2Mask & (1 << c)) !== 0;
+          for (const instId of group.cellInstanceIds[c]!) {
+            group.mesh.setVisibleAt(instId, show);
+          }
+        }
+      }
+      group.mesh.visible = lod2Mask !== 0;
+      group.mesh.castShadow = lod2Mask !== 0 && castShadow && !group.noShadowCast;
+    }
   }
 
   /**

@@ -366,6 +366,7 @@ declare global {
       thirdPersonView(x: number, z: number, yaw?: number, pitch?: number): void;
       setShadowProfile(profile: ShadowLodProfile): void;
       metrics(): DebugSnapshot;
+      renderProfile?: () => unknown;
     };
   }
 }
@@ -479,6 +480,100 @@ if (debugMode) {
     thirdPersonView: setThirdPersonAuditView,
     setShadowProfile: (profile) => chunks?.setShadowProfile(profile),
     metrics: debugSnapshot,
+    renderProfile: () => {
+      const buckets = new Map<
+        string,
+        {
+          meshes: number;
+          instancedCalls: number;
+          instances: number;
+          tris: number;
+          castShadowMeshes: number;
+          castShadowTris: number;
+        }
+      >();
+      scene.traverse((obj) => {
+        const node = obj as unknown as {
+          isMesh?: boolean;
+          isInstancedMesh?: boolean;
+          count?: number;
+          visible?: boolean;
+          castShadow?: boolean;
+          receiveShadow?: boolean;
+          name?: string;
+          parent?: { visible?: boolean; name?: string } | null;
+          geometry?: {
+            index?: { count: number } | null;
+            attributes?: { position?: { count: number } };
+          };
+          material?:
+            | {
+                name?: string;
+                type?: string;
+                colorWrite?: boolean;
+                roughness?: number;
+                vertexColors?: boolean;
+                map?: { image?: { width?: number; height?: number } } | null;
+              }
+            | Array<{
+                name?: string;
+                type?: string;
+                colorWrite?: boolean;
+                roughness?: number;
+                vertexColors?: boolean;
+                map?: { image?: { width?: number; height?: number } } | null;
+              }>;
+        };
+        if (!node.isMesh) return;
+        let cur: {
+          visible?: boolean;
+          parent?: { visible?: boolean; name?: string } | null;
+        } | null = node;
+        let ancestorHidden = false;
+        while (cur) {
+          if (cur.visible === false) {
+            ancestorHidden = true;
+            break;
+          }
+          cur = cur.parent ?? null;
+        }
+        if (ancestorHidden) return;
+        const posCount = node.geometry?.attributes?.position?.count ?? 0;
+        const baseTris = node.geometry?.index
+          ? Math.round(node.geometry.index.count / 3)
+          : Math.round(posCount / 3);
+        const instCount = node.isInstancedMesh ? (node.count ?? 0) : 1;
+        if (node.isInstancedMesh && instCount <= 0) return;
+        const mats = Array.isArray(node.material) ? node.material : [node.material];
+        const firstMat = mats[0];
+        const matTag = firstMat
+          ? firstMat.colorWrite === false
+            ? 'shadowProxy(colorWrite=false)'
+            : `${firstMat.type ?? 'mat'}:${firstMat.name || ''}:r=${firstMat.roughness ?? ''}:vc=${Boolean(firstMat.vertexColors)}:tex=${firstMat.map?.image?.width ?? 0}x${firstMat.map?.image?.height ?? 0}:m=${mats.length}`
+          : 'nomat';
+        const key = `${node.isInstancedMesh ? 'INST' : 'MESH'}|${node.parent?.name || '-'}|${node.name || '-'}|${matTag}|cast=${Boolean(node.castShadow)}|recv=${Boolean(node.receiveShadow)}`;
+        const prev = buckets.get(key) ?? {
+          meshes: 0,
+          instancedCalls: 0,
+          instances: 0,
+          tris: 0,
+          castShadowMeshes: 0,
+          castShadowTris: 0,
+        };
+        prev.meshes += 1;
+        if (node.isInstancedMesh) prev.instancedCalls += 1;
+        prev.instances += instCount;
+        prev.tris += baseTris * instCount;
+        if (node.castShadow) {
+          prev.castShadowMeshes += 1;
+          prev.castShadowTris += baseTris * instCount;
+        }
+        buckets.set(key, prev);
+      });
+      return Array.from(buckets.entries())
+        .map(([key, v]) => ({ key, ...v }))
+        .sort((a, b) => b.meshes - a.meshes);
+    },
   };
 }
 

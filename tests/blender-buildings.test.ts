@@ -390,4 +390,181 @@ describe('System B: Geographic adaptation onto Catastro & OSM footprints', () =>
       );
     }
   });
+
+  it('prevents buried roofs on steep hillsides, guards subpart overlaps, preserves target heights, and avoids suppressing straddling buildings', () => {
+    // 1) Steep hillside (~6.4m drop) with a 2-floor low house must never bury its roof below uphill ground
+    const steepTerrain = buildTerrainChunk({
+      id: 'steep_0',
+      bounds,
+      terrain: {
+        samples: 5,
+        stepMeters: 32,
+        quantizationMeters: 0.25,
+        heights: Array.from({ length: 25 }, (_, i) => {
+          const row = Math.floor(i / 5);
+          return 1600 + row * 12; // +3m per 32m step across Z (up to 12m total)
+        }),
+      },
+      features: [],
+    } satisfies RawTerrainChunk);
+
+    const lowHillsideHouse: ChunkFeature = {
+      id: 'hillside_low',
+      featureType: 'building',
+      zone: 'periferia',
+      buildingType: 'house',
+      visualFloors: 2,
+      visualHeightMeters: 6.2,
+      points: [
+        [-10, -28],
+        [10, -28],
+        [10, 28],
+        [-10, 28],
+        [-10, -28],
+      ],
+    };
+    const hillGeo = buildBlenderGeoPlacements([lowHillsideHouse], steepTerrain, bounds);
+    expect(hillGeo.placements.length).toBeGreaterThanOrEqual(1);
+    for (const p of hillGeo.placements) {
+      const renderedH = p.scaleY * BLENDER_MODEL_SPECS[p.modelKey].nominalHeightMeters;
+      const localMaxY = 400 + ((p.z + 64) / 32) * 3 + 0.5;
+      expect(p.y + renderedH).toBeGreaterThanOrEqual(localMaxY);
+    }
+
+    // 2) Overlapping multipart BuildingPart subparts must not stack at < 2.0m distance
+    const stackedPartsBuilding: ChunkFeature = {
+      id: 'stacked_parts',
+      featureType: 'building',
+      zone: 'ensanche',
+      buildingType: 'apartments',
+      visualFloors: 4,
+      visualHeightMeters: 13.0,
+      points: [
+        [-12, -12],
+        [12, -12],
+        [12, 12],
+        [-12, 12],
+        [-12, -12],
+      ],
+      parts: [
+        {
+          floors: 4,
+          heightMeters: 13.0,
+          pts: [
+            [-6, -6],
+            [6, -6],
+            [6, 6],
+            [-6, 6],
+            [-6, -6],
+          ],
+        },
+        {
+          floors: 4,
+          heightMeters: 13.0,
+          pts: [
+            [-5.5, -5.5],
+            [6.5, -5.5],
+            [6.5, 6.5],
+            [-5.5, 6.5],
+            [-5.5, -5.5],
+          ],
+        },
+      ],
+    };
+    const partGeo = buildBlenderGeoPlacements([stackedPartsBuilding], terrain, bounds);
+    const placedParts = partGeo.placements.filter((p) => p.buildingId.startsWith('stacked_parts'));
+    expect(placedParts.length).toBe(1);
+
+    // 3) Wide 2-floor residential house must keep real height (~6.2m), not inflate > +35%
+    const wideLowHouse: ChunkFeature = {
+      id: 'wide_low_house',
+      featureType: 'building',
+      zone: 'casco',
+      buildingType: 'terrace',
+      visualFloors: 2,
+      visualHeightMeters: 6.2,
+      points: [
+        [-7, -7],
+        [7, -7],
+        [7, 7],
+        [-7, 7],
+        [-7, -7],
+      ],
+    };
+    const lowGeo = buildBlenderGeoPlacements([wideLowHouse], terrain, bounds);
+    expect(lowGeo.placements.length).toBeGreaterThanOrEqual(1);
+    for (const p of lowGeo.placements) {
+      const renderedH = p.scaleY * BLENDER_MODEL_SPECS[p.modelKey].nominalHeightMeters;
+      expect(renderedH).toBeLessThanOrEqual(8.3);
+    }
+
+    // 4) Tall 6-floor courtyard wing must stay multi-story (>= 14m), never drop to 3-floor commercial/gabled
+    const tallCourtyard: ChunkFeature = {
+      id: 'tall_courtyard',
+      featureType: 'building',
+      zone: 'ensanche',
+      buildingType: 'apartments',
+      visualFloors: 6,
+      visualHeightMeters: 19.2,
+      points: [
+        [-16, -16],
+        [16, -16],
+        [16, 16],
+        [-16, 16],
+        [-16, -16],
+      ],
+      innerRings: [
+        [
+          [-5, -5],
+          [5, -5],
+          [5, 5],
+          [-5, 5],
+          [-5, -5],
+        ],
+      ],
+    };
+    const tallGeo = buildBlenderGeoPlacements([tallCourtyard], terrain, bounds);
+    expect(tallGeo.placements.length).toBeGreaterThanOrEqual(4);
+    for (const p of tallGeo.placements) {
+      const renderedH = p.scaleY * BLENDER_MODEL_SPECS[p.modelKey].nominalHeightMeters;
+      expect(renderedH).toBeGreaterThanOrEqual(14.5);
+    }
+
+    // 5) In-grid chunk-straddling feature suppresses procedural fallback on clipped neighbor slice; outside-world (>3840m) straddler does not
+    const inGridStraddler: ChunkFeature = {
+      id: 'straddler_in_grid',
+      featureType: 'building',
+      zone: 'periferia',
+      visualFloors: 2,
+      visualHeightMeters: 6.5,
+      points: [
+        [70, -10],
+        [95, -10],
+        [95, 10],
+        [70, 10],
+        [70, -10],
+      ],
+    };
+    const straddleGeo = buildBlenderGeoPlacements([inGridStraddler], terrain, bounds);
+    expect(straddleGeo.handledBuildingIds.has('straddler_in_grid')).toBe(true);
+    expect(straddleGeo.placements).toHaveLength(0);
+
+    const outOfWorldStraddler: ChunkFeature = {
+      id: 'straddler_out_of_world',
+      featureType: 'building',
+      zone: 'periferia',
+      visualFloors: 2,
+      visualHeightMeters: 6.5,
+      points: [
+        [3850, -10],
+        [3875, -10],
+        [3875, 10],
+        [3850, 10],
+        [3850, -10],
+      ],
+    };
+    const outWorldGeo = buildBlenderGeoPlacements([outOfWorldStraddler], terrain, bounds);
+    expect(outWorldGeo.handledBuildingIds.has('straddler_out_of_world')).toBe(false);
+    expect(outWorldGeo.placements).toHaveLength(0);
+  });
 });

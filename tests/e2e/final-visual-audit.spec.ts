@@ -95,7 +95,7 @@ const GALLERY_ZONES: readonly ZoneGallerySpec[] = [
   {
     key: '01b-casco-interior',
     label: 'Casco Histórico — Calles Interiores y Palacios (Santa María / Adarves)',
-    player: { x: -6, z: -28 },
+    player: { x: -90, z: -64 },
     focus: { x: -56, z: -42, targetYOffset: 7.0 },
     calle: { x: 0, z: -4, heightAboveGround: 2.6 },
     aerea: { x: 35, z: -5, heightAboveGround: 52 },
