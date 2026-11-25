@@ -1,0 +1,48 @@
+{
+  "models": [
+    {
+      "key": "01_casco_house",
+      "label": "Casa Hist\u00f3rica de C\u00e1ceres",
+      "lod0Tris": 24256,
+      "lod1Tris": 2544,
+      "lod0GlbBytes": 1412988,
+      "lod1GlbBytes": 149284,
+      "materialsCount": 16,
+      "perspectiveRender": "01_casco_house_perspectiva.png",
+      "streetRender": "01_casco_house_calle.png"
+    },
+    {
+      "key": "02_modern_residential",
+      "label": "Edificio Residencial Moderno",
+      "lod0Tris": 39098,
+      "lod1Tris": 5254,
+      "lod0GlbBytes": 2274840,
+      "lod1GlbBytes": 293944,
+      "materialsCount": 13,
+      "perspectiveRender": "02_modern_residential_perspectiva.png",
+      "streetRender": "02_modern_residential_calle.png"
+    },
+    {
+      "key": "03_chalet",
+      "label": "Chalet Unifamiliar con Jard\u00edn",
+      "lod0Tris": 21074,
+      "lod1Tris": 1702,
+      "lod0GlbBytes": 1236936,
+      "lod1GlbBytes": 101848,
+      "materialsCount": 20,
+      "perspectiveRender": "03_chalet_perspectiva.png",
+      "streetRender": "03_chalet_calle.png"
+    },
+    {
+      "key": "04_commercial",
+      "label": "Edificio Comercial con Escaparates",
+      "lod0Tris": 16614,
+      "lod1Tris": 2382,
+      "lod0GlbBytes": 971636,
+      "lod1GlbBytes": 140412,
+      "materialsCount": 16,
+      "perspectiveRender": "04_commercial_perspectiva.png",
+      "streetRender": "04_commercial_calle.png"
+    }
+  ]
+}
