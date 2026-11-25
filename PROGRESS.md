@@ -591,3 +591,28 @@ Los datos fuente se guardan en caché local ignorada por git; el juego usa los c
 ### Cómo probarlo
 - `npm run dev` y abrir `http://localhost:5173/?debug=1`: caminar, correr y observar a los peatones; entrar en el coche con `E` y comprobar la carrocería, las ruedas y el color al requisar un vehículo ambiental.
 - Regenerar los GLB con Blender 5.2 según el comando documentado en `ASSETS_LICENSES.md`.
+
+## Conducción, simulación y tráfico (rama `agent/opencode-vehicles`, completado)
+
+### Hecho
+- Auditoría previa: un `world.step()` por coche, dirección/frenado insensibles a la velocidad, comparación O(n²) entre NPCs y ninguna detección de glorietas. Informe en [`reports/vehicle-simulation-audit.md`](reports/vehicle-simulation-audit.md).
+- `src/world/vehicle.ts`: CCD, dirección suavizada y limitada por velocidad, taper de aceleración, rear-slip con freno de mano y separación `update()` / `postPhysics()`.
+- `src/world/vehicle-simulation.ts`: único paso Rapier por fotograma, métricas propias, histéresis de `stopped`, eventos `entered`/`exited`, permiso de spawn y registro de descriptores GLB.
+- `src/world/vehicle-simulation-api.ts` y `docs/vehicle-simulation-api.md`: contrato propuesto para misiones, sin Rapier ni Three.js y sin spawn público.
+- `src/world/road-graph.ts`: glorietas derivadas de ways OSM cerrados de un solo sentido, con velocidad reducida y consultas `isRoundaboutNode/Edge/Segment`.
+- `src/world/npc-system.ts`: rejilla espacial de 12 m, seguimiento con distancia, cesión solo al entrar en glorieta y contadores `followingBrakes` / `roundaboutExits`.
+- `src/main.ts`: `KeyE` delegado en la API, integración del step único y métricas de vehículos/tráfico en el snapshot de debug.
+- `tests/vehicle-simulation.test.ts`: dirección por velocidad, API sin spawn, permiso de spawn, descriptor GLB, step único y detección de glorietas (positiva y negativa).
+
+### Verificación
+- `npx prettier --check --end-of-line auto`, `npm run lint`, `npm run typecheck`, `npm test` (17 suites / 75 pruebas) y `npm run build`: sin errores. El script `format:check` sin `--end-of-line auto` marca todos los archivos del repo por CRLF en Windows; es un comportamiento previo, no de este cambio.
+- Navegador con `?debug=1&world=cc-monumental`: sin errores de consola; `E` entra y sale, `W` acelera; `vehicleSimulation.lastStepMs` 0,3–0,8 ms, `clampedContacts` 0 y `simulatedVehicles` 1. Contadores globales: 161 draw calls y ~2,33 M triángulos (city kit ajeno). El FPS del entorno WebGL por software no es representativo de la sensación de conducción.
+
+### Pendiente
+- Revisión del contrato por Gemini B antes de conectar misiones u oficios.
+- Registrar modelos GLB reales de autobús/scooter para que `spawnServiceVehicle` deje de devolver `null`.
+- Validar la sensación de conducción y las glorietas en un equipo con GPU y con la red viaria completa cargada.
+
+### Cómo probarlo
+- `npm run dev` y abrir `http://localhost:5173/?debug=1&world=cc-monumental`; acercarse al GT, pulsar `E`, conducir con `W/A/S/D` y el freno de mano con `Espacio`.
+- En consola: `__CTA_DEBUG__.vehicleApi.enterVehicle()`, `getControlledVehicle()` y `__CTA_DEBUG__.metrics().vehicleSimulation` / `.trafficEvents`.

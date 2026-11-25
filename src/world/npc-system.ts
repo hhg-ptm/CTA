@@ -38,6 +38,7 @@ const INTERSECTION_YIELD_SECONDS = 2.5;
 // Distant agents keep their footprint and collider but advance less often.
 const LOD_NEAR_METERS = 90;
 const LOD_MID_METERS = 210;
+const NEIGHBOR_CELL_METERS = 12;
 
 /**
  * Ambient pedestrians and traffic driven by the OSM-derived road graph.
@@ -83,6 +84,8 @@ export class NpcSystem {
   private readonly dummy = new THREE.Object3D();
   private readonly cameraDirection = new THREE.Vector3();
   private readonly temporaryColor = new THREE.Color();
+  private readonly agentCells = new Map<number, number[]>();
+  private readonly cellPool: number[][] = [];
   private randomState = 0x9e3779b9;
   private elapsed = 0;
   private spawnCooldown = 0;
@@ -90,6 +93,8 @@ export class NpcSystem {
   private activeVehicles = 0;
   private totalReroutes = 0;
   private totalDespawns = 0;
+  private followingBrakes = 0;
+  private roundaboutExits = 0;
   private updateFrame = 0;
   private readonly lodPopulation: [number, number, number] = [0, 0, 0];
 
@@ -154,8 +159,18 @@ export class NpcSystem {
     return this.lodPopulation;
   }
 
-  get diagnostics(): { readonly reroutes: number; readonly despawns: number } {
-    return { reroutes: this.totalReroutes, despawns: this.totalDespawns };
+  get diagnostics(): {
+    readonly reroutes: number;
+    readonly despawns: number;
+    readonly followingBrakes: number;
+    readonly roundaboutExits: number;
+  } {
+    return {
+      reroutes: this.totalReroutes,
+      despawns: this.totalDespawns,
+      followingBrakes: this.followingBrakes,
+      roundaboutExits: this.roundaboutExits,
+    };
   }
 
   getVehiclePositions(result: { x: number; z: number }[]): void {
@@ -264,6 +279,7 @@ export class NpcSystem {
     this.lodPopulation[2] = 0;
     this.cameraDirection.set(0, 0, -1).applyQuaternion(camera.quaternion);
     this.maintainPopulation(dt, player, world);
+    this.rebuildSpatialIndex();
     for (let slot = 0; slot < this.active.length; slot += 1) {
       if (this.active[slot] !== 1) continue;
       const dx = (this.x[slot] ?? 0) - player.x;
@@ -388,6 +404,7 @@ export class NpcSystem {
     const forward = (edge & 1) === 0;
     const toNode = forward ? info.to : info.from;
     const mode: AgentMode = this.kind[slot] === 0 ? 'pedestrian' : 'vehicle';
+    const onRoundabout = mode === 'vehicle' && info.roundabout;
     let desired = mode === 'pedestrian' ? 1.5 : Math.min(info.speed, 14);
     desired *=
       this.kind[slot] === 0
@@ -398,8 +415,19 @@ export class NpcSystem {
       desired = Math.max(desired, 3.6);
     }
 
-    if (this.blockedAhead(slot, player)) desired = 0;
-    if ((this.progress[slot] ?? 0) > 0.94) {
+    const gap = this.distanceAhead(slot, player);
+    if (gap < Infinity) {
+      if (mode === 'vehicle') {
+        const followingSpeed = Math.max(0, gap - 3) * 1.3;
+        if (followingSpeed < desired - 0.2) this.followingBrakes += 1;
+        desired = Math.min(desired, followingSpeed);
+      } else if (gap < 2.4) {
+        desired = 0;
+      }
+    }
+    // Circulating traffic must not claim the junction at every short segment.
+    // Cars still yield before entering a roundabout from an approach road.
+    if (!onRoundabout && (this.progress[slot] ?? 0) > 0.94) {
       const owner = this.intersectionOwner[toNode] ?? 0;
       if (
         owner !== 0 &&
@@ -431,6 +459,12 @@ export class NpcSystem {
         this.release(slot);
         return;
       }
+      if (
+        mode === 'vehicle' &&
+        this.graph.isRoundaboutEdge(edge) &&
+        !this.graph.isRoundaboutEdge(nextEdge)
+      )
+        this.roundaboutExits += 1;
       this.edge[slot] = nextEdge;
       this.checkedMid[slot] = 0;
       progress -= 1;
@@ -493,26 +527,69 @@ export class NpcSystem {
     );
   }
 
-  private blockedAhead(slot: number, player: THREE.Vector3): boolean {
+  /** Rebuilds a uniform grid once per frame so neighbor checks are not O(n²). */
+  private rebuildSpatialIndex(): void {
+    for (const bucket of this.agentCells.values()) {
+      bucket.length = 0;
+      this.cellPool.push(bucket);
+    }
+    this.agentCells.clear();
+    for (let slot = 0; slot < this.active.length; slot += 1) {
+      if (this.active[slot] !== 1) continue;
+      const key = this.cellKey(this.x[slot] ?? 0, this.z[slot] ?? 0);
+      let bucket = this.agentCells.get(key);
+      if (!bucket) {
+        bucket = this.cellPool.pop() ?? [];
+        this.agentCells.set(key, bucket);
+      }
+      bucket.push(slot);
+    }
+  }
+
+  private cellKey(x: number, z: number): number {
+    const cellX = Math.floor(x / NEIGHBOR_CELL_METERS);
+    const cellZ = Math.floor(z / NEIGHBOR_CELL_METERS);
+    return (cellX + 4096) * 8192 + cellZ + 4096;
+  }
+
+  /** Forward clearance to the closest agent in the same lane. */
+  private distanceAhead(slot: number, player: THREE.Vector3): number {
     const x = this.x[slot] ?? 0;
     const z = this.z[slot] ?? 0;
     const heading = this.heading[slot] ?? 0;
     const forwardX = Math.sin(heading);
     const forwardZ = Math.cos(heading);
-    const reach = this.kind[slot] === 0 ? 2.4 : 7;
-    for (let other = 0; other < this.active.length; other += 1) {
-      if (other === slot || this.active[other] !== 1) continue;
-      const dx = (this.x[other] ?? 0) - x;
-      const dz = (this.z[other] ?? 0) - z;
-      if (dx * dx + dz * dz > reach * reach) continue;
-      if (dx * forwardX + dz * forwardZ > 0) return true;
+    const isPedestrian = this.kind[slot] === 0;
+    const reach = isPedestrian ? 2.4 : 12;
+    const lateralLimit = isPedestrian ? 0.8 : 1.8;
+    const baseX = Math.floor(x / NEIGHBOR_CELL_METERS);
+    const baseZ = Math.floor(z / NEIGHBOR_CELL_METERS);
+    let nearest = Infinity;
+
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dz = -1; dz <= 1; dz += 1) {
+        const key = (baseX + dx + 4096) * 8192 + baseZ + dz + 4096;
+        for (const other of this.agentCells.get(key) ?? []) {
+          if (other === slot || this.active[other] !== 1) continue;
+          const offsetX = (this.x[other] ?? 0) - x;
+          const offsetZ = (this.z[other] ?? 0) - z;
+          const along = offsetX * forwardX + offsetZ * forwardZ;
+          if (along <= 0 || along > reach) continue;
+          const lateral = Math.abs(offsetX * forwardZ - offsetZ * forwardX);
+          if (lateral > lateralLimit) continue;
+          nearest = Math.min(nearest, along);
+        }
+      }
     }
-    if (this.kind[slot] === 0) {
-      const dx = player.x - x;
-      const dz = player.z - z;
-      if (dx * dx + dz * dz < 9 && dx * forwardX + dz * forwardZ > 0) return true;
+    if (isPedestrian) {
+      const offsetX = player.x - x;
+      const offsetZ = player.z - z;
+      const along = offsetX * forwardX + offsetZ * forwardZ;
+      if (along > 0 && along < 3 && Math.abs(offsetX * forwardZ - offsetZ * forwardX) < 0.8) {
+        nearest = Math.min(nearest, along);
+      }
     }
-    return false;
+    return nearest;
   }
 
   private handleStuck(slot: number, node: number, mode: AgentMode): void {
