@@ -741,6 +741,9 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
         activeVehicle = nearest;
         character.position.copy(nearest.position);
         character.group.visible = false;
+        // Otherwise the pedestrian's camera yaw remains and can sit in front
+        // of the car, making forward and steering feel reversed.
+        cameraRig.setYaw(nearest.heading + Math.PI);
       } else {
         showNotice(t('notice.noVehicle'), performance.now(), 1600);
       }
