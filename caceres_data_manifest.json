@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "project": "Cáceres Criminal (CTA)",
-  "phase": "FASE 1 - Base de datos y arquitectura",
+  "phase": "FASE 2 - Generador procedural 3D, vegetación, mobiliario y prototipo 4 zonas",
   "generatedAt": "2026-11-25",
   "region": "cc-monumental",
   "crs": {
@@ -185,22 +185,24 @@
     "catastroAtomStats": {
       "buildingsMunicipality": 13631,
       "buildingsIn7600m": 11068,
-      "buildingsWithPartFloorsIn7600m": 11068,
-      "buildingsWithCourtyardsIn7600m": 620,
+      "buildingsWithPartFloorsIn7600m": 11061,
+      "buildingsWithCourtyardsIn7600m": 557,
       "partsMunicipality": 57659,
       "partsIn7600m": 48805,
+      "otherConstructionMunicipality": 1827,
+      "otherConstructionIn7600m": 1137,
       "portalsMunicipality": 18550,
       "portalsIn7600m": 16689,
       "topMaxFloorDistributionIn7600m": {
-        "2": 4954,
-        "3": 2180,
-        "1": 2058,
-        "4": 722,
-        "5": 321,
-        "6": 201,
-        "7": 201,
-        "8": 151,
-        "9": 125,
+        "2": 4967,
+        "3": 2167,
+        "1": 2063,
+        "4": 732,
+        "5": 305,
+        "7": 202,
+        "6": 196,
+        "8": 150,
+        "9": 124,
         "10": 48,
         "11": 40,
         "0": 37
@@ -208,53 +210,39 @@
     },
     "heightProvenance": {
       "osm_explicit": 60,
-      "catastro_floors": 6124,
-      "realVerifiedTotal": 6184,
-      "realVerifiedPercent": 85.31,
-      "catastro_footprint_matched": 6179,
-      "overlapBothOsmAndCatastro": 39,
-      "heuristic_fallback": 1065,
-      "heuristicFallbackBreakdown": {
-        "unmatchedNoCatastroMatch": 1049,
-        "matchedCatastroZeroFloors": 16,
-        "unmatchedTopOsmTypes": {
-          "yes": 669,
-          "industrial": 88,
-          "terrace": 85,
-          "roof": 78,
-          "residential": 53,
-          "school": 20,
-          "apartments": 12,
-          "farm_auxiliary": 11,
-          "university": 9,
-          "ruins": 7,
-          "public": 7,
-          "commercial": 6
-        }
-      },
+      "catastro_floors": 5964,
+      "realVerifiedTotal": 6024,
+      "realVerifiedPercent": 83.1,
+      "catastro_footprint_matched": 6019,
+      "otherconstruction_matched": 4,
+      "estimated": 319,
+      "unknown": 906,
+      "heuristic_fallback": 1225,
       "maxObservedFloors": {
         "catastro": 16,
         "osm": 11
       }
     },
     "catastroUsesMatched": {
-      "1_residential": 5212,
-      "3_industrial": 344,
-      "4_3_publicServices": 284,
-      "4_2_retail": 246,
-      "4_1_office": 50,
-      "2_agriculture": 8
+      "1_residential": 5091,
+      "3_industrial": 330,
+      "4_3_publicServices": 279,
+      "4_2_retail": 234,
+      "4_1_office": 47,
+      "2_agriculture": 7
     },
     "catastroErasMatched": {
-      "modern_1985_plus": 2088,
-      "classic_1900_1950": 2017,
-      "ensanche_1950_1985": 1955,
-      "historic_pre_1900": 94
+      "modern_1985_plus": 2058,
+      "classic_1900_1950": 1955,
+      "ensanche_1950_1985": 1892,
+      "historic_pre_1900": 91
     },
     "architecturalEnrichmentCounts": {
-      "buildingsWithMultipleCatastroParts": 4955,
-      "buildingsWithCourtyard": 713,
-      "buildingsWithPortalsMatched": 5688
+      "buildingsWithMultipleCatastroParts": 4553,
+      "buildingsWithCourtyard": 659,
+      "buildingsWithExportedInnerRings": 484,
+      "buildingsWithExportedSteppedParts": 2444,
+      "buildingsWithPortalsMatched": 5806
     },
     "osmStreetPropsAndVegetation": {
       "tree": 7313,
@@ -382,11 +370,13 @@
   ],
   "existingAssetsSummary": {
     "cityKitManifest": "public/models/citykit/manifest.json",
-    "cityKitGlbCount": 44,
-    "cityKitModulesCount": 22,
-    "cityKitBuildingModulesCount": 17,
-    "cityKitRoadModulesCount": 5,
-    "cityKitTotalBytesOnDisk": 1215895,
-    "heroLandmarkGlbCount": 0
+    "cityKitGlbCount": 72,
+    "cityKitModulesCount": 36,
+    "cityKitBuildingModulesCount": 19,
+    "cityKitRoadModulesCount": 17,
+    "cityKitTotalBytesOnDisk": 1198984,
+    "heroLandmarkGlbCount": 0,
+    "prototypeStagingDir": "public/world/cc-prototype/",
+    "prototypeChunkCount": 23
   }
 }

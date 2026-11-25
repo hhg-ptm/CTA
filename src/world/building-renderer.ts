@@ -13,8 +13,42 @@ function buildingGeometry(surface: BuildingSurfaceGeometry): THREE.BufferGeometr
   return geometry;
 }
 
+function shadowProxyGeometry(
+  surfaces: readonly BuildingSurfaceGeometry[],
+): THREE.BufferGeometry | undefined {
+  let vertCount = 0;
+  let idxCount = 0;
+  for (const s of surfaces) {
+    vertCount += s.positions.length / 3;
+    idxCount += s.indices.length;
+  }
+  if (idxCount === 0 || vertCount === 0) return undefined;
+  const positions = new Float32Array(vertCount * 3);
+  const indices = new Uint32Array(idxCount);
+  let vOff = 0;
+  let iOff = 0;
+  for (const s of surfaces) {
+    positions.set(s.positions, vOff * 3);
+    for (let i = 0; i < s.indices.length; i += 1) {
+      indices[iOff + i] = (s.indices[i] ?? 0) + vOff;
+    }
+    vOff += s.positions.length / 3;
+    iOff += s.indices.length;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
 export class BuildingRenderer {
   private readonly materials = createBuildingMaterials();
+  private readonly shadowProxyMaterial = new THREE.MeshBasicMaterial({
+    colorWrite: false,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
 
   createMeshes(
     buildings: BuiltBuildingChunk | undefined,
@@ -22,18 +56,29 @@ export class BuildingRenderer {
     centerZ: number,
   ): THREE.Mesh[][] {
     if (!buildings) return [];
-    return buildings.levels.map((level) =>
-      level.surfaces.flatMap((surface) => {
+    const lod2Surfaces = buildings.levels[2]?.surfaces ?? buildings.levels[1]?.surfaces ?? [];
+    const proxyGeom = lod2Surfaces.length > 0 ? shadowProxyGeometry(lod2Surfaces) : undefined;
+    return buildings.levels.map((level, levelIndex) => {
+      const meshes: THREE.Mesh[] = level.surfaces.flatMap((surface) => {
         const material = this.materials.get(surface.material);
         if (!material || surface.indices.length === 0) return [];
         const mesh = new THREE.Mesh(buildingGeometry(surface), material);
         mesh.position.set(centerX, 0, centerZ);
-        mesh.castShadow = true;
+        mesh.castShadow = levelIndex > 0 || !proxyGeom;
         mesh.receiveShadow = true;
         mesh.visible = false;
         return [mesh];
-      }),
-    );
+      });
+      if (levelIndex === 0 && proxyGeom) {
+        const proxy = new THREE.Mesh(proxyGeom, this.shadowProxyMaterial);
+        proxy.position.set(centerX, 0, centerZ);
+        proxy.castShadow = true;
+        proxy.receiveShadow = false;
+        proxy.visible = false;
+        meshes.push(proxy);
+      }
+      return meshes;
+    });
   }
 
   async prepare(
@@ -66,6 +111,7 @@ export class BuildingRenderer {
   }
 
   dispose(): void {
+    this.shadowProxyMaterial.dispose();
     for (const material of this.materials.values()) {
       material.map?.dispose();
       material.emissiveMap?.dispose();

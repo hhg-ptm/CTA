@@ -37,6 +37,14 @@ export interface WorldManifest {
   readonly chunks: readonly ChunkEntry[];
 }
 
+export interface BuildingPartVolume {
+  readonly pts: readonly (readonly [number, number])[];
+  readonly floors?: number | null;
+  readonly heightMeters?: number | null;
+}
+
+export type TreeSpeciesKind = 'deciduous' | 'oak' | 'pine' | 'palm' | 'cypress';
+
 export interface ChunkFeature {
   readonly featureType: 'road' | 'pedestrian' | 'building' | 'surface' | 'prop' | 'poi';
   readonly id?: string;
@@ -64,6 +72,7 @@ export interface ChunkFeature {
   readonly heightMeters?: number | null;
   readonly visualFloors?: number;
   readonly visualHeightMeters?: number;
+  readonly heightOrigin?: 'osm_explicit' | 'catastro_floors' | 'estimated' | 'unknown';
   readonly roofHeightMeters?: number | null;
   readonly roofShape?: string;
   readonly roofMaterial?: 'tile' | 'modern';
@@ -74,11 +83,17 @@ export interface ChunkFeature {
   readonly zone?: 'casco' | 'ensanche' | 'periferia';
   readonly commercial?: boolean;
   readonly commercialCategory?: string;
+  readonly catastroUse?: string;
+  readonly catastroEra?: string;
+  readonly innerRings?: readonly (readonly (readonly [number, number])[])[];
+  readonly parts?: readonly BuildingPartVolume[];
+  readonly portalPoints?: readonly (readonly [number, number])[];
   readonly category?: string;
   readonly fictional?: boolean;
   readonly landmarkModelPath?: string;
   readonly directionDegrees?: number | null;
   readonly trafficSign?: string;
+  readonly treeSpecies?: TreeSpeciesKind;
   readonly points?: readonly (readonly [number, number])[];
   readonly position?: readonly [number, number];
 }
@@ -162,6 +177,7 @@ export type BuildingDetailKind =
   | 'window_casco'
   | 'window_ensanche'
   | 'window_modern'
+  | 'window_awning'
   | 'portal_casco'
   | 'portal_modern'
   | 'shopfront_awning'
@@ -171,6 +187,7 @@ export type BuildingDetailKind =
   | 'dormer_roof'
   | 'rooftop_penthouse'
   | 'rooftop_hvac'
+  | 'rooftop_solar'
   | 'bell_gable'
   | 'corner_turret'
   | 'heraldic_crest';
@@ -204,8 +221,27 @@ export interface RoadSurfaceGeometry {
   readonly indices: Uint32Array;
 }
 
+export type RoadPropKind =
+  | 'traffic_signals'
+  | 'stop'
+  | 'give_way'
+  | 'street_lamp'
+  | 'street_lamp_modern'
+  | 'tree'
+  | 'tree_deciduous'
+  | 'tree_oak'
+  | 'tree_pine'
+  | 'tree_palm'
+  | 'tree_cypress'
+  | 'shrub'
+  | 'hedge'
+  | 'bus_shelter'
+  | 'bench'
+  | 'waste_basket'
+  | 'fountain';
+
 export interface RoadPropBatch {
-  readonly kind: 'traffic_signals' | 'stop' | 'give_way' | 'street_lamp' | 'tree';
+  readonly kind: RoadPropKind;
   readonly positions: Float32Array;
   readonly headings: Float32Array;
 }

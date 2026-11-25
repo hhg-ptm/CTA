@@ -253,6 +253,8 @@ declare global {
   interface Window {
     __CTA_DEBUG__?: {
       teleport(x: number, z: number): void;
+      setView(x: number, y: number, z: number, yaw: number, pitch: number): void;
+      thirdPersonView(x: number, z: number, yaw?: number, pitch?: number): void;
       metrics(): DebugSnapshot;
     };
   }
@@ -309,10 +311,44 @@ function teleportForAudit(x: number, z: number): void {
   character.position.set(x, ground ?? character.position.y, z);
   character.group.visible = true;
   focusInitialized = false;
-  camera.position.set(x, character.position.y + 8, z + 9);
+  cameraRig.setCameraPose(
+    x,
+    (ground ?? character.position.y) + 8,
+    z + 9,
+    cameraRig.getYaw(),
+    -0.25,
+  );
 }
 
-if (debugMode) window.__CTA_DEBUG__ = { teleport: teleportForAudit, metrics: debugSnapshot };
+function setDebugFreeView(x: number, y: number, z: number, yaw: number, pitch: number): void {
+  noclipEnabled = true;
+  inVehicle = false;
+  activeVehicle = null;
+  cameraRig.mode = 'free';
+  character.group.visible = false;
+  cameraRig.setCameraPose(x, y, z, yaw, pitch);
+}
+
+function setThirdPersonAuditView(x: number, z: number, yaw = 2.07, pitch = -0.14): void {
+  noclipEnabled = false;
+  inVehicle = false;
+  activeVehicle = null;
+  cameraRig.mode = 'thirdPerson';
+  const ground = chunks?.groundHeightAt(x, z);
+  character.position.set(x, ground ?? character.position.y, z);
+  character.group.visible = true;
+  focusInitialized = false;
+  cameraRig.setCameraPose(x, (ground ?? character.position.y) + 2.6, z + 7.5, yaw, pitch);
+}
+
+if (debugMode) {
+  window.__CTA_DEBUG__ = {
+    teleport: teleportForAudit,
+    setView: setDebugFreeView,
+    thirdPersonView: setThirdPersonAuditView,
+    metrics: debugSnapshot,
+  };
+}
 
 function normalizeLandmarkQuery(value: string): string {
   return value
@@ -471,11 +507,14 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
     audio.updateVehicleEngine(false, 0, false);
     audio.updateSkid(false);
     audio.setHorn(false);
-    character.update(frameSeconds, input, chunks, cameraRig.getYaw(), spacePressed);
-    if (character.stepTriggered) audio.playFootstep();
-    // The character is scripted (not a Rapier body), so resolve agent overlap here.
-    npcs?.resolveCollision(character.position, 0.35);
-    police?.resolveCollision(character.position, 0.35);
+    const groundHere = chunks?.groundHeightAt(character.position.x, character.position.z);
+    if (groundHere !== undefined) {
+      character.update(frameSeconds, input, chunks, cameraRig.getYaw(), spacePressed);
+      if (character.stepTriggered) audio.playFootstep();
+      // The character is scripted (not a Rapier body), so resolve agent overlap here.
+      npcs?.resolveCollision(character.position, 0.35);
+      police?.resolveCollision(character.position, 0.35);
+    }
     cameraRig.update(frameSeconds, character.position);
     const ch = chunks?.groundHeightAt(camera.position.x, camera.position.z);
     if (ch !== undefined && camera.position.y < ch + 0.5) camera.position.y = ch + 0.5;
@@ -764,11 +803,13 @@ window.addEventListener('pagehide', () => {
   renderer.dispose();
 });
 
+const requestedWorld = query.get('world') === 'cc-prototype' ? 'cc-prototype' : 'cc-monumental';
+
 async function initializeWorld(): Promise<void> {
   world = await createPhysicsWorld();
   agentColliders = new AgentColliders(world);
   const worldBaseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
-  const manifestUrl = new URL('world/cc-monumental/manifest.json', worldBaseUrl);
+  const manifestUrl = new URL(`world/${requestedWorld}/manifest.json`, worldBaseUrl);
   chunks = new ChunkManager(scene, world, manifestUrl, worldBaseUrl, cityKitEnabled);
   cameraRig.occlusion = (origin, dir, maxDist) =>
     chunks?.cameraOcclusion(origin, dir, maxDist) ?? maxDist;
@@ -798,7 +839,7 @@ async function initializeWorld(): Promise<void> {
     });
   for (const vehicle of vehicles) loadVehicleVisual(vehicle);
   statusLabel.textContent = 'Ciudad lista · WASD camina · clic captura el ratón';
-  logger.info('World streaming initialized', { region: 'cc-monumental', stepHz: 60, lods: 3 });
+  logger.info('World streaming initialized', { region: requestedWorld, stepHz: 60, lods: 3 });
   void initializeNpcs(worldBaseUrl).catch((error: unknown) => {
     agentsLabel.textContent = 'sin red viaria';
     logger.warn('Traffic initialization failed', { error: String(error) });

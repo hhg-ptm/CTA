@@ -1,5 +1,6 @@
 import type { BuildingMaterial, BuildingSurfaceGeometry } from './types';
 import { triangulatePolygon, type RoadPoint, type RoadPoint3 } from './road-geometry';
+import { triangulatePolygonWithHoles } from './polygon-holes';
 
 export type BuildingColor = readonly [number, number, number];
 export type BuildingUv = readonly [number, number];
@@ -69,6 +70,49 @@ export class BuildingGeometryWriter {
       const first = points[a];
       const second = points[b];
       const third = points[c];
+      if (!first || !second || !third) continue;
+      if (faceNormal(first, second, third)[1] >= 0)
+        buffer.indices.push(base + a, base + b, base + c);
+      else buffer.indices.push(base + a, base + c, base + b);
+    }
+  }
+
+  addPolygonWithHoles(
+    material: BuildingMaterial,
+    outer: readonly RoadPoint3[],
+    holes: readonly (readonly RoadPoint3[])[],
+    color: BuildingColor,
+    uvFor: (point: RoadPoint3) => BuildingUv,
+  ): void {
+    if (holes.length === 0) {
+      this.addPolygon(material, outer, color, uvFor);
+      return;
+    }
+    const outer2d = outer.map((point) => [point[0], point[2]] as RoadPoint);
+    const holes2d = holes.map((hole) => hole.map((point) => [point[0], point[2]] as RoadPoint));
+    const { vertices, triangles } = triangulatePolygonWithHoles(outer2d, holes2d);
+    if (triangles.length === 0) {
+      this.addPolygon(material, outer, color, uvFor);
+      return;
+    }
+    const yLookup = new Map<string, number>();
+    for (const pt of outer) yLookup.set(`${pt[0].toFixed(2)}:${pt[2].toFixed(2)}`, pt[1]);
+    for (const hole of holes) {
+      for (const pt of hole) yLookup.set(`${pt[0].toFixed(2)}:${pt[2].toFixed(2)}`, pt[1]);
+    }
+    const fallbackY = outer[0]?.[1] ?? 0;
+    const points3d: RoadPoint3[] = vertices.map((v) => [
+      v[0],
+      yLookup.get(`${v[0].toFixed(2)}:${v[1].toFixed(2)}`) ?? fallbackY,
+      v[1],
+    ]);
+    const buffer = this.buffer(material);
+    const base = buffer.positions.length / 3;
+    for (const point of points3d) this.pushVertex(buffer, point, [0, 1, 0], color, uvFor(point));
+    for (const [a, b, c] of triangles) {
+      const first = points3d[a];
+      const second = points3d[b];
+      const third = points3d[c];
       if (!first || !second || !third) continue;
       if (faceNormal(first, second, third)[1] >= 0)
         buffer.indices.push(base + a, base + b, base + c);

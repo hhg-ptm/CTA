@@ -470,7 +470,7 @@ export class ChunkManager {
 
   private lodForDistance(distance: number): number {
     const chunkMeters = this.manifest?.chunkMeters ?? 256;
-    return distance < chunkMeters * 0.9 ? 0 : distance < chunkMeters * 1.65 ? 1 : 2;
+    return distance < chunkMeters * 0.68 ? 0 : distance < chunkMeters * 1.38 ? 1 : 2;
   }
 
   private setLod(record: ChunkRecord, lod: number): void {
@@ -502,6 +502,8 @@ export class ChunkManager {
       mesh.visible = true;
       this.scene.add(mesh);
     }
+    for (const stork of record.storks ?? []) stork.visible = lod === 0;
+    for (const sign of record.signs ?? []) sign.visible = lod === 0;
     this.syncDebugOverlays(record);
   }
 
@@ -572,11 +574,13 @@ export class ChunkManager {
         const stork = createStork();
         stork.position.set(instance.position[0], instance.position[1], instance.position[2]);
         stork.rotation.y = ((instance.buildingId.length % 8) * Math.PI) / 4;
+        stork.visible = record.lod === 0;
         this.scene.add(stork);
         return stork;
       });
       record.signs = (item.result.buildings?.signSlots ?? []).map((slot) => {
         const mesh = createBrandSign(slot);
+        mesh.visible = record.lod === 0;
         this.scene.add(mesh);
         return mesh;
       });

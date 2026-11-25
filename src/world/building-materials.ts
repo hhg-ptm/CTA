@@ -233,19 +233,21 @@ function drawGlassPane(
     ctx.fillRect(x + 2, y + 2, Math.max(2, w - 4), Math.max(2, h - 4));
     return;
   }
-  ctx.fillStyle = '#2d2824';
+  // Bright cobalt-sky stylized glazing with crisp frame and diagonal specular slash.
+  ctx.fillStyle = '#262320';
   ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
   const grad = ctx.createLinearGradient(x, y, x + w, y + h);
-  grad.addColorStop(0, '#698591');
-  grad.addColorStop(1, '#263942');
+  grad.addColorStop(0, '#5ea2c4');
+  grad.addColorStop(0.55, '#356986');
+  grad.addColorStop(1, '#20455a');
   ctx.fillStyle = grad;
   ctx.fillRect(x, y, w, h);
   // Crisp sky diagonal reflection
-  ctx.fillStyle = 'rgb(235 247 255 / 26%)';
+  ctx.fillStyle = 'rgb(235 249 255 / 32%)';
   ctx.beginPath();
   ctx.moveTo(x + 2, y + 2);
-  ctx.lineTo(x + Math.min(w - 2, 16), y + 2);
-  ctx.lineTo(x + 2, y + Math.min(h - 2, 26));
+  ctx.lineTo(x + Math.min(w - 2, 18), y + 2);
+  ctx.lineTo(x + 2, y + Math.min(h - 2, 28));
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = frame;

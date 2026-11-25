@@ -1,227 +1,367 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "generator": "tools/generate_citykit.py",
   "licence": "CC0-1.0 (original procedural geometry)",
   "models": {
     "street-lamp-lod0": {
       "path": "models/citykit/street-lamp-lod0.glb",
       "triangles": 108,
-      "bytes": 29180
+      "bytes": 16828
     },
     "street-lamp-lod1": {
       "path": "models/citykit/street-lamp-lod1.glb",
       "triangles": 72,
-      "bytes": 27236
+      "bytes": 14884
+    },
+    "street-lamp-modern-lod0": {
+      "path": "models/citykit/street-lamp-modern-lod0.glb",
+      "triangles": 76,
+      "bytes": 14984
+    },
+    "street-lamp-modern-lod1": {
+      "path": "models/citykit/street-lamp-modern-lod1.glb",
+      "triangles": 60,
+      "bytes": 14116
     },
     "tree-lod0": {
       "path": "models/citykit/tree-lod0.glb",
       "triangles": 376,
-      "bytes": 58624
+      "bytes": 46140
     },
     "tree-lod1": {
       "path": "models/citykit/tree-lod1.glb",
       "triangles": 108,
-      "bytes": 31660
+      "bytes": 19176
+    },
+    "tree-deciduous-lod0": {
+      "path": "models/citykit/tree-deciduous-lod0.glb",
+      "triangles": 376,
+      "bytes": 46160
+    },
+    "tree-deciduous-lod1": {
+      "path": "models/citykit/tree-deciduous-lod1.glb",
+      "triangles": 108,
+      "bytes": 19196
+    },
+    "tree-oak-lod0": {
+      "path": "models/citykit/tree-oak-lod0.glb",
+      "triangles": 316,
+      "bytes": 40220
+    },
+    "tree-oak-lod1": {
+      "path": "models/citykit/tree-oak-lod1.glb",
+      "triangles": 108,
+      "bytes": 19312
+    },
+    "tree-pine-lod0": {
+      "path": "models/citykit/tree-pine-lod0.glb",
+      "triangles": 96,
+      "bytes": 15968
+    },
+    "tree-pine-lod1": {
+      "path": "models/citykit/tree-pine-lod1.glb",
+      "triangles": 64,
+      "bytes": 14108
+    },
+    "tree-palm-lod0": {
+      "path": "models/citykit/tree-palm-lod0.glb",
+      "triangles": 332,
+      "bytes": 33332
+    },
+    "tree-palm-lod1": {
+      "path": "models/citykit/tree-palm-lod1.glb",
+      "triangles": 144,
+      "bytes": 20364
+    },
+    "tree-cypress-lod0": {
+      "path": "models/citykit/tree-cypress-lod0.glb",
+      "triangles": 88,
+      "bytes": 15428
+    },
+    "tree-cypress-lod1": {
+      "path": "models/citykit/tree-cypress-lod1.glb",
+      "triangles": 64,
+      "bytes": 14196
+    },
+    "shrub-lod0": {
+      "path": "models/citykit/shrub-lod0.glb",
+      "triangles": 140,
+      "bytes": 23408
+    },
+    "shrub-lod1": {
+      "path": "models/citykit/shrub-lod1.glb",
+      "triangles": 60,
+      "bytes": 15244
+    },
+    "hedge-lod0": {
+      "path": "models/citykit/hedge-lod0.glb",
+      "triangles": 36,
+      "bytes": 12408
+    },
+    "hedge-lod1": {
+      "path": "models/citykit/hedge-lod1.glb",
+      "triangles": 24,
+      "bytes": 11564
+    },
+    "bus-shelter-lod0": {
+      "path": "models/citykit/bus-shelter-lod0.glb",
+      "triangles": 132,
+      "bytes": 19140
+    },
+    "bus-shelter-lod1": {
+      "path": "models/citykit/bus-shelter-lod1.glb",
+      "triangles": 108,
+      "bytes": 17460
+    },
+    "park-bench-lod0": {
+      "path": "models/citykit/park-bench-lod0.glb",
+      "triangles": 72,
+      "bytes": 14964
+    },
+    "park-bench-lod1": {
+      "path": "models/citykit/park-bench-lod1.glb",
+      "triangles": 48,
+      "bytes": 13280
+    },
+    "waste-bin-lod0": {
+      "path": "models/citykit/waste-bin-lod0.glb",
+      "triangles": 76,
+      "bytes": 14584
+    },
+    "waste-bin-lod1": {
+      "path": "models/citykit/waste-bin-lod1.glb",
+      "triangles": 52,
+      "bytes": 13284
+    },
+    "fountain-lod0": {
+      "path": "models/citykit/fountain-lod0.glb",
+      "triangles": 132,
+      "bytes": 17988
+    },
+    "fountain-lod1": {
+      "path": "models/citykit/fountain-lod1.glb",
+      "triangles": 80,
+      "bytes": 14988
     },
     "traffic-signals-lod0": {
       "path": "models/citykit/traffic-signals-lod0.glb",
       "triangles": 92,
-      "bytes": 28328
+      "bytes": 15844
     },
     "traffic-signals-lod1": {
       "path": "models/citykit/traffic-signals-lod1.glb",
       "triangles": 60,
-      "bytes": 26596
+      "bytes": 14116
     },
     "stop-sign-lod0": {
       "path": "models/citykit/stop-sign-lod0.glb",
       "triangles": 76,
-      "bytes": 27064
+      "bytes": 14584
     },
     "stop-sign-lod1": {
       "path": "models/citykit/stop-sign-lod1.glb",
       "triangles": 52,
-      "bytes": 25764
+      "bytes": 13284
     },
     "give-way-sign-lod0": {
       "path": "models/citykit/give-way-sign-lod0.glb",
       "triangles": 44,
-      "bytes": 25324
+      "bytes": 12844
     },
     "give-way-sign-lod1": {
       "path": "models/citykit/give-way-sign-lod1.glb",
       "triangles": 36,
-      "bytes": 24888
+      "bytes": 12408
     },
     "chimney-lod0": {
       "path": "models/citykit/chimney-lod0.glb",
-      "triangles": 56,
-      "bytes": 26176
+      "triangles": 76,
+      "bytes": 14984
     },
     "chimney-lod1": {
       "path": "models/citykit/chimney-lod1.glb",
-      "triangles": 24,
-      "bytes": 24072
+      "triangles": 36,
+      "bytes": 12432
     },
     "balcony-lod0": {
       "path": "models/citykit/balcony-lod0.glb",
-      "triangles": 132,
-      "bytes": 31624
+      "triangles": 180,
+      "bytes": 22520
     },
     "balcony-lod1": {
       "path": "models/citykit/balcony-lod1.glb",
       "triangles": 72,
-      "bytes": 27440
+      "bytes": 14956
     },
     "balcony-modern-lod0": {
       "path": "models/citykit/balcony-modern-lod0.glb",
-      "triangles": 84,
-      "bytes": 28272
+      "triangles": 108,
+      "bytes": 17472
     },
     "balcony-modern-lod1": {
       "path": "models/citykit/balcony-modern-lod1.glb",
       "triangles": 60,
-      "bytes": 26592
+      "bytes": 14112
     },
     "window-casco-lod0": {
       "path": "models/citykit/window-casco-lod0.glb",
-      "triangles": 60,
-      "bytes": 26612
+      "triangles": 96,
+      "bytes": 16636
     },
     "window-casco-lod1": {
       "path": "models/citykit/window-casco-lod1.glb",
-      "triangles": 36,
-      "bytes": 24924
+      "triangles": 60,
+      "bytes": 14116
     },
     "window-ensanche-lod0": {
       "path": "models/citykit/window-ensanche-lod0.glb",
-      "triangles": 48,
-      "bytes": 25760
+      "triangles": 84,
+      "bytes": 15816
     },
     "window-ensanche-lod1": {
       "path": "models/citykit/window-ensanche-lod1.glb",
-      "triangles": 36,
-      "bytes": 24916
+      "triangles": 60,
+      "bytes": 14136
     },
     "window-modern-lod0": {
       "path": "models/citykit/window-modern-lod0.glb",
-      "triangles": 48,
-      "bytes": 25748
+      "triangles": 84,
+      "bytes": 15784
     },
     "window-modern-lod1": {
       "path": "models/citykit/window-modern-lod1.glb",
-      "triangles": 36,
-      "bytes": 24904
+      "triangles": 60,
+      "bytes": 14104
+    },
+    "window-awning-lod0": {
+      "path": "models/citykit/window-awning-lod0.glb",
+      "triangles": 96,
+      "bytes": 16652
+    },
+    "window-awning-lod1": {
+      "path": "models/citykit/window-awning-lod1.glb",
+      "triangles": 72,
+      "bytes": 14972
     },
     "portal-casco-lod0": {
       "path": "models/citykit/portal-casco-lod0.glb",
-      "triangles": 108,
-      "bytes": 29968
+      "triangles": 120,
+      "bytes": 18328
     },
     "portal-casco-lod1": {
       "path": "models/citykit/portal-casco-lod1.glb",
       "triangles": 84,
-      "bytes": 28288
+      "bytes": 15808
     },
     "portal-modern-lod0": {
       "path": "models/citykit/portal-modern-lod0.glb",
-      "triangles": 72,
-      "bytes": 27448
+      "triangles": 84,
+      "bytes": 15796
     },
     "portal-modern-lod1": {
       "path": "models/citykit/portal-modern-lod1.glb",
       "triangles": 60,
-      "bytes": 26608
+      "bytes": 14128
     },
     "shopfront-awning-lod0": {
       "path": "models/citykit/shopfront-awning-lod0.glb",
-      "triangles": 84,
-      "bytes": 28296
+      "triangles": 96,
+      "bytes": 16656
     },
     "shopfront-awning-lod1": {
       "path": "models/citykit/shopfront-awning-lod1.glb",
       "triangles": 60,
-      "bytes": 26612
+      "bytes": 14132
     },
     "industrial-door-lod0": {
       "path": "models/citykit/industrial-door-lod0.glb",
-      "triangles": 80,
-      "bytes": 27888
+      "triangles": 88,
+      "bytes": 15836
     },
     "industrial-door-lod1": {
       "path": "models/citykit/industrial-door-lod1.glb",
       "triangles": 48,
-      "bytes": 25772
+      "bytes": 13288
     },
     "pilaster-corner-lod0": {
       "path": "models/citykit/pilaster-corner-lod0.glb",
       "triangles": 48,
-      "bytes": 25712
+      "bytes": 13292
     },
     "pilaster-corner-lod1": {
       "path": "models/citykit/pilaster-corner-lod1.glb",
       "triangles": 24,
-      "bytes": 24028
+      "bytes": 11608
     },
     "rooftop-penthouse-lod0": {
       "path": "models/citykit/rooftop-penthouse-lod0.glb",
-      "triangles": 60,
-      "bytes": 26616
+      "triangles": 72,
+      "bytes": 14960
     },
     "rooftop-penthouse-lod1": {
       "path": "models/citykit/rooftop-penthouse-lod1.glb",
       "triangles": 36,
-      "bytes": 24928
+      "bytes": 12432
     },
     "rooftop-hvac-lod0": {
       "path": "models/citykit/rooftop-hvac-lod0.glb",
       "triangles": 72,
-      "bytes": 27028
+      "bytes": 14564
     },
     "rooftop-hvac-lod1": {
       "path": "models/citykit/rooftop-hvac-lod1.glb",
       "triangles": 12,
-      "bytes": 23216
+      "bytes": 10736
+    },
+    "rooftop-solar-lod0": {
+      "path": "models/citykit/rooftop-solar-lod0.glb",
+      "triangles": 60,
+      "bytes": 13916
+    },
+    "rooftop-solar-lod1": {
+      "path": "models/citykit/rooftop-solar-lod1.glb",
+      "triangles": 36,
+      "bytes": 12424
     },
     "dormer-roof-lod0": {
       "path": "models/citykit/dormer-roof-lod0.glb",
-      "triangles": 48,
-      "bytes": 25760
+      "triangles": 60,
+      "bytes": 14124
     },
     "dormer-roof-lod1": {
       "path": "models/citykit/dormer-roof-lod1.glb",
       "triangles": 48,
-      "bytes": 25760
+      "bytes": 13280
     },
     "bell-gable-lod0": {
       "path": "models/citykit/bell-gable-lod0.glb",
       "triangles": 120,
-      "bytes": 30568
+      "bytes": 18088
     },
     "bell-gable-lod1": {
       "path": "models/citykit/bell-gable-lod1.glb",
       "triangles": 88,
-      "bytes": 28460
+      "bytes": 15976
     },
     "corner-turret-lod0": {
       "path": "models/citykit/corner-turret-lod0.glb",
       "triangles": 96,
-      "bytes": 28552
+      "bytes": 16072
     },
     "corner-turret-lod1": {
       "path": "models/citykit/corner-turret-lod1.glb",
       "triangles": 64,
-      "bytes": 26632
+      "bytes": 14152
     },
     "heraldic-crest-lod0": {
       "path": "models/citykit/heraldic-crest-lod0.glb",
       "triangles": 48,
-      "bytes": 25768
+      "bytes": 13288
     },
     "heraldic-crest-lod1": {
       "path": "models/citykit/heraldic-crest-lod1.glb",
       "triangles": 24,
-      "bytes": 24084
+      "bytes": 11604
     }
   }
 }

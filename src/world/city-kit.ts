@@ -31,7 +31,19 @@ const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 const ROAD_KIT_NAMES: Record<RoadPropBatch['kind'], string> = {
   street_lamp: 'street-lamp',
+  street_lamp_modern: 'street-lamp-modern',
   tree: 'tree',
+  tree_deciduous: 'tree-deciduous',
+  tree_oak: 'tree-oak',
+  tree_pine: 'tree-pine',
+  tree_palm: 'tree-palm',
+  tree_cypress: 'tree-cypress',
+  shrub: 'shrub',
+  hedge: 'hedge',
+  bus_shelter: 'bus-shelter',
+  bench: 'park-bench',
+  waste_basket: 'waste-bin',
+  fountain: 'fountain',
   traffic_signals: 'traffic-signals',
   stop: 'stop-sign',
   give_way: 'give-way-sign',
@@ -43,6 +55,7 @@ const BUILDING_KIT_NAMES: Record<BuildingDetailKind, string> = {
   window_casco: 'window-casco',
   window_ensanche: 'window-ensanche',
   window_modern: 'window-modern',
+  window_awning: 'window-awning',
   portal_casco: 'portal-casco',
   portal_modern: 'portal-modern',
   shopfront_awning: 'shopfront-awning',
@@ -52,6 +65,7 @@ const BUILDING_KIT_NAMES: Record<BuildingDetailKind, string> = {
   dormer_roof: 'dormer-roof',
   rooftop_penthouse: 'rooftop-penthouse',
   rooftop_hvac: 'rooftop-hvac',
+  rooftop_solar: 'rooftop-solar',
   bell_gable: 'bell-gable',
   corner_turret: 'corner-turret',
   heraldic_crest: 'heraldic-crest',
@@ -96,12 +110,39 @@ function hashId(id: string): number {
   return hash;
 }
 
+const LOD1_ROAD_PROP_KINDS = new Set<string>([
+  'tree',
+  'tree_deciduous',
+  'tree_oak',
+  'tree_pine',
+  'tree_palm',
+  'tree_cypress',
+  'bus_shelter',
+  'fountain',
+]);
+
+const SHADOW_CASTING_KINDS = new Set<string>([
+  'rooftop_penthouse',
+  'chimney',
+  'bell_gable',
+  'corner_turret',
+  'tree',
+  'tree_deciduous',
+  'tree_oak',
+  'tree_pine',
+  'tree_palm',
+  'tree_cypress',
+  'bus_shelter',
+  'fountain',
+]);
+
 function instanceParts(
   parts: readonly KitPart[],
   placements: readonly Placement[],
   centerX: number,
   centerZ: number,
   localCoordinates: boolean,
+  castShadow: boolean,
 ): THREE.Mesh[] {
   if (placements.length === 0) return [];
   const matrix = new THREE.Matrix4();
@@ -126,7 +167,7 @@ function instanceParts(
     }
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
-    mesh.castShadow = true;
+    mesh.castShadow = castShadow;
     mesh.receiveShadow = true;
     meshes.push(mesh);
   }
@@ -183,14 +224,25 @@ export class CityKit {
     centerZ: number,
     lod: number,
   ): THREE.Mesh[] {
-    if (!this.ready || !roads) return [];
+    if (!this.ready || !roads || lod >= 2) return [];
     const meshes: THREE.Mesh[] = [];
     for (const batch of roads.props) {
+      if (lod === 1 && !LOD1_ROAD_PROP_KINDS.has(batch.kind)) continue;
       const name = ROAD_KIT_NAMES[batch.kind];
       const model = this.models.get(name);
       if (!model) continue;
       const placements = this.placementsFromBatch(batch, lod === 0 ? model.lod0 : model.lod1);
-      meshes.push(...instanceParts(placements.parts, placements.positions, centerX, centerZ, true));
+      const castShadow = lod === 0 && SHADOW_CASTING_KINDS.has(batch.kind);
+      meshes.push(
+        ...instanceParts(
+          placements.parts,
+          placements.positions,
+          centerX,
+          centerZ,
+          true,
+          castShadow,
+        ),
+      );
     }
     return meshes;
   }
@@ -231,9 +283,12 @@ export class CityKit {
           scale: batch.scales[i] ?? 1,
         });
       }
-      lod0Meshes.push(...instanceParts(model.lod0, placements, centerX, centerZ, false));
+      const castShadow = SHADOW_CASTING_KINDS.has(batch.kind);
+      lod0Meshes.push(
+        ...instanceParts(model.lod0, placements, centerX, centerZ, false, castShadow),
+      );
       if (batch.maxLod >= 1) {
-        lod1Meshes.push(...instanceParts(model.lod1, placements, centerX, centerZ, false));
+        lod1Meshes.push(...instanceParts(model.lod1, placements, centerX, centerZ, false, false));
       }
     }
     return [lod0Meshes, lod1Meshes, []];
@@ -283,7 +338,7 @@ export class CityKit {
           scale: 0.85 + ((hash >>> 5) % 4) * 0.1,
         });
       }
-      meshes.push(...instanceParts(parts, placements, centerX, centerZ, false));
+      meshes.push(...instanceParts(parts, placements, centerX, centerZ, false, lod === 0));
     }
     const balconies = this.models.get('balcony');
     if (balconies) {
@@ -295,7 +350,7 @@ export class CityKit {
         heading: slot.heading,
         scale: THREE.MathUtils.clamp(slot.width / 1.3, 0.75, 1.5),
       }));
-      meshes.push(...instanceParts(parts, placements, centerX, centerZ, false));
+      meshes.push(...instanceParts(parts, placements, centerX, centerZ, false, lod === 0));
     }
     return meshes;
   }
@@ -316,12 +371,22 @@ export class CityKit {
       const y = batch.positions[offset + 1];
       const z = batch.positions[offset + 2];
       if (x === undefined || y === undefined || z === undefined) continue;
+      const isTree = batch.kind.startsWith('tree');
+      const vary = isTree
+        ? 0.8 + ((index * 37) % 6) * 0.08
+        : batch.kind === 'shrub'
+          ? 0.78 + ((index * 23) % 5) * 0.11
+          : 1;
+      const heading =
+        isTree || batch.kind === 'shrub'
+          ? (index * 1.618) % (Math.PI * 2)
+          : (batch.headings[index] ?? 0);
       positions.push({
         x,
         y,
         z,
-        heading: batch.headings[index] ?? 0,
-        scale: batch.kind === 'tree' ? 0.82 + ((index * 37) % 5) * 0.1 : 1,
+        heading,
+        scale: vary,
       });
     }
     return { parts, positions };

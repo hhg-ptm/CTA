@@ -262,156 +262,174 @@
     "buildingModules": [
       {
         "id": "balcony",
-        "trisLod0": 132,
+        "trisLod0": 180,
         "trisLod1": 72,
-        "bytesLod0": 31624,
-        "bytesLod1": 27440,
-        "auditVerdict": "reuse_and_enrich",
-        "notes": "Good wrought-iron style silhouette; add flower-box and stone bracket variant in FASE 2."
+        "bytesLod0": 22520,
+        "bytesLod1": 14956,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Upgraded in Blender with carved brackets, wrought railings, and terracotta planter boxes."
       },
       {
         "id": "balcony-modern",
-        "trisLod0": 84,
+        "trisLod0": 108,
         "trisLod1": 60,
-        "bytesLod0": 28272,
-        "bytesLod1": 26592,
-        "auditVerdict": "upgrade",
-        "notes": "Add glass balustrade + projecting concrete slab lip for Ensanche/Nuevo Cáceres."
+        "bytesLod0": 17472,
+        "bytesLod1": 14112,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Upgraded in Blender with projecting concrete slab and glass balustrade."
       },
       {
         "id": "window-casco",
-        "trisLod0": 60,
-        "trisLod1": 36,
-        "bytesLod0": 26612,
-        "bytesLod1": 24924,
-        "auditVerdict": "upgrade",
-        "notes": "Currently surface-mounted; add deeper stone embrasure, sill, and open/closed shutter variants."
+        "trisLod0": 96,
+        "trisLod1": 60,
+        "bytesLod0": 16636,
+        "bytesLod1": 14116,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Deep embrasure variant in CityKit v2; regular facade bays also use mesh-baked 3D recessed openings."
       },
       {
         "id": "window-ensanche",
-        "trisLod0": 48,
-        "trisLod1": 36,
-        "bytesLod0": 25760,
-        "bytesLod1": 24916,
-        "auditVerdict": "upgrade",
-        "notes": "Add persiana (roller blind) housing box and exterior frame relief."
+        "trisLod0": 84,
+        "trisLod1": 60,
+        "bytesLod0": 15816,
+        "bytesLod1": 14136,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Includes outer persiana box and deep surround frame."
       },
       {
         "id": "window-modern",
-        "trisLod0": 48,
-        "trisLod1": 36,
-        "bytesLod0": 25748,
-        "bytesLod1": 24904,
-        "auditVerdict": "upgrade",
-        "notes": "Add anodized frame mullions and recessed sill reflection pane."
+        "trisLod0": 84,
+        "trisLod1": 60,
+        "bytesLod0": 15784,
+        "bytesLod1": 14104,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Anodized mullioned frame with Stylized Low Poly cobalt glazing."
+      },
+      {
+        "id": "window-awning",
+        "trisLod0": 96,
+        "trisLod1": 72,
+        "bytesLod0": 16652,
+        "bytesLod1": 14972,
+        "auditVerdict": "added_phase2",
+        "notes": "Added in FASE 2 for scalloped window awnings matching Stylized Low Poly style."
       },
       {
         "id": "portal-casco",
-        "trisLod0": 108,
+        "trisLod0": 120,
         "trisLod1": 84,
-        "bytesLod0": 29968,
-        "bytesLod1": 28288,
-        "auditVerdict": "reuse",
-        "notes": "Solid voussoir arch geometry; supplement with noble double-leaf wood door variant."
+        "bytesLod0": 18328,
+        "bytesLod1": 15808,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Stone voussoir arch aligned toward matched Catastro AD entrances."
       },
       {
         "id": "portal-modern",
-        "trisLod0": 72,
+        "trisLod0": 84,
         "trisLod1": 60,
-        "bytesLod0": 27448,
-        "bytesLod1": 26608,
-        "auditVerdict": "upgrade",
-        "notes": "Add canopy overhang, glazed transom, and recessed entry alcove."
+        "bytesLod0": 15796,
+        "bytesLod1": 14128,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Projecting canopy vestibule with glazed double doors."
       },
       {
         "id": "shopfront-awning",
-        "trisLod0": 84,
+        "trisLod0": 96,
         "trisLod1": 60,
-        "bytesLod0": 28296,
-        "bytesLod1": 26612,
-        "auditVerdict": "upgrade",
-        "notes": "Add multi-color striped fabric variants, signage lintel, and recessed glass storefront."
+        "bytesLod0": 16656,
+        "bytesLod1": 14132,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Ground commercial bay with fabric awning and recessed glazing."
       },
       {
         "id": "industrial-door",
-        "trisLod0": 80,
+        "trisLod0": 88,
         "trisLod1": 48,
-        "bytesLod0": 27888,
-        "bytesLod1": 25772,
-        "auditVerdict": "reuse",
-        "notes": "Works well for garages/warehouses; add loading dock bumper accessory."
+        "bytesLod0": 15836,
+        "bytesLod1": 13288,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Corrugated industrial bay gate with hood trim."
       },
       {
         "id": "pilaster-corner",
         "trisLod0": 48,
         "trisLod1": 24,
-        "bytesLod0": 25712,
-        "bytesLod1": 24028,
-        "auditVerdict": "reuse",
-        "notes": "Clean ashlar corner quoin strip; widen variation by era."
+        "bytesLod0": 13292,
+        "bytesLod1": 11608,
+        "auditVerdict": "retained",
+        "notes": "Stone corner quoin strip (paired with mesh-level pilasters in building-volumes.ts)."
       },
       {
         "id": "chimney",
-        "trisLod0": 56,
-        "trisLod1": 24,
-        "bytesLod0": 26176,
-        "bytesLod1": 24072,
-        "auditVerdict": "reuse_and_expand",
-        "notes": "Good chimney cap; add brick multi-flue stack and clay pot variants."
+        "trisLod0": 76,
+        "trisLod1": 36,
+        "bytesLod0": 14984,
+        "bytesLod1": 12432,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Brick/mortar stack with clay flue pots for pitched Casco & chalet roofs."
       },
       {
         "id": "dormer-roof",
-        "trisLod0": 48,
+        "trisLod0": 60,
         "trisLod1": 48,
-        "bytesLod0": 25760,
-        "bytesLod1": 25760,
-        "auditVerdict": "upgrade",
-        "notes": "LOD0 and LOD1 are identical (48 tris); reduce LOD1 and sharpen roof tile trim."
+        "bytesLod0": 14124,
+        "bytesLod1": 13280,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Pitched dormer loft window with terracotta gable cheek."
       },
       {
         "id": "rooftop-penthouse",
-        "trisLod0": 60,
+        "trisLod0": 72,
         "trisLod1": 36,
-        "bytesLod0": 26616,
-        "bytesLod1": 24928,
-        "auditVerdict": "upgrade",
-        "notes": "Small single box; augment with recessed habitable terrace & parapet pergola for multi-part roofs."
+        "bytesLod0": 14960,
+        "bytesLod1": 12432,
+        "auditVerdict": "upgraded_phase2",
+        "notes": "Rooftop stair bulkheads paired with true setback attic volumes."
       },
       {
         "id": "rooftop-hvac",
         "trisLod0": 72,
         "trisLod1": 12,
-        "bytesLod0": 27028,
-        "bytesLod1": 23216,
-        "auditVerdict": "reuse_and_expand",
-        "notes": "Good LOD drop (72->12); add solar thermal panels & TV antenna cluster."
+        "bytesLod0": 14564,
+        "bytesLod1": 10736,
+        "auditVerdict": "retained",
+        "notes": "HVAC cooling unit for flat commercial, industrial, and Ensanche roofs."
+      },
+      {
+        "id": "rooftop-solar",
+        "trisLod0": 60,
+        "trisLod1": 36,
+        "bytesLod0": 13916,
+        "bytesLod1": 12424,
+        "auditVerdict": "added_phase2",
+        "notes": "Added in FASE 2 for modern apartment and commercial flat roofs."
       },
       {
         "id": "bell-gable",
         "trisLod0": 120,
         "trisLod1": 88,
-        "bytesLod0": 30568,
-        "bytesLod1": 28460,
-        "auditVerdict": "reuse",
-        "notes": "Distinctive Espadaña silhouette suited to convents and chapels."
+        "bytesLod0": 18088,
+        "bytesLod1": 15976,
+        "auditVerdict": "retained",
+        "notes": "Espadaña silhouette for historic chapels and convents."
       },
       {
         "id": "corner-turret",
         "trisLod0": 96,
         "trisLod1": 64,
-        "bytesLod0": 28552,
-        "bytesLod1": 26632,
-        "auditVerdict": "reuse",
-        "notes": "Effective heraldic tower accent when restricted to corner/historic buildings."
+        "bytesLod0": 16072,
+        "bytesLod1": 14152,
+        "auditVerdict": "retained",
+        "notes": "Corner bartizan accent for historic towers."
       },
       {
         "id": "heraldic-crest",
         "trisLod0": 48,
         "trisLod1": 24,
-        "bytesLod0": 25768,
-        "bytesLod1": 24084,
-        "auditVerdict": "reuse",
-        "notes": "Good low-poly escutcheon for casco_palace portals."
+        "bytesLod0": 13288,
+        "bytesLod1": 11604,
+        "auditVerdict": "retained",
+        "notes": "Carved escutcheon mounted above casco_palace portals."
       }
     ],
     "roadAndVegetationModules": [
@@ -419,56 +437,156 @@
         "id": "street-lamp",
         "trisLod0": 108,
         "trisLod1": 72,
-        "bytesLod0": 29180,
-        "bytesLod1": 27236,
-        "auditVerdict": "split",
-        "notes": "Split into historic lantern (Casco) and dual-arm boulevard streetlight (Ensanche/Periferia)."
+        "bytesLod0": 16828,
+        "bytesLod1": 14884,
+        "auditVerdict": "retained",
+        "notes": "Historic Casco street lantern."
+      },
+      {
+        "id": "street-lamp-modern",
+        "trisLod0": 76,
+        "trisLod1": 60,
+        "bytesLod0": 14984,
+        "bytesLod1": 14116,
+        "auditVerdict": "added_phase2",
+        "notes": "Added in FASE 2 for modern Ensanche and Periferia avenues."
       },
       {
         "id": "tree",
         "trisLod0": 376,
         "trisLod1": 108,
-        "bytesLod0": 58624,
-        "bytesLod1": 31660,
-        "auditVerdict": "expand",
-        "notes": "Only 1 generic tree serves 7,313 OSM trees; add olive/holm oak, plane tree (broadleaved: 890), pine/cypress (needleleaved: 173), and park bushes."
+        "bytesLod0": 46140,
+        "bytesLod1": 19176,
+        "auditVerdict": "retained_fallback",
+        "notes": "Default fallback tree silhouette."
+      },
+      {
+        "id": "tree-deciduous",
+        "trisLod0": 376,
+        "trisLod1": 108,
+        "bytesLod0": 46160,
+        "bytesLod1": 19196,
+        "auditVerdict": "added_phase2",
+        "notes": "Deciduous plane/park tree variant."
+      },
+      {
+        "id": "tree-oak",
+        "trisLod0": 316,
+        "trisLod1": 108,
+        "bytesLod0": 40220,
+        "bytesLod1": 19312,
+        "auditVerdict": "added_phase2",
+        "notes": "Extremadura holm oak (encina) multi-lobe canopy."
+      },
+      {
+        "id": "tree-pine",
+        "trisLod0": 96,
+        "trisLod1": 64,
+        "bytesLod0": 15968,
+        "bytesLod1": 14108,
+        "auditVerdict": "added_phase2",
+        "notes": "Layered conical conifer (pino)."
+      },
+      {
+        "id": "tree-palm",
+        "trisLod0": 332,
+        "trisLod1": 144,
+        "bytesLod0": 33332,
+        "bytesLod1": 20364,
+        "auditVerdict": "added_phase2",
+        "notes": "Palm tree variant for Paseo de Cánovas and boulevards."
+      },
+      {
+        "id": "tree-cypress",
+        "trisLod0": 88,
+        "trisLod1": 64,
+        "bytesLod0": 15428,
+        "bytesLod1": 14196,
+        "auditVerdict": "added_phase2",
+        "notes": "Columnar Mediterranean cypress for Casco cloisters and plazas."
+      },
+      {
+        "id": "shrub",
+        "trisLod0": 140,
+        "trisLod1": 60,
+        "bytesLod0": 23408,
+        "bytesLod1": 15244,
+        "auditVerdict": "added_phase2",
+        "notes": "Clustered low-poly garden shrub."
+      },
+      {
+        "id": "hedge",
+        "trisLod0": 36,
+        "trisLod1": 24,
+        "bytesLod0": 12408,
+        "bytesLod1": 11564,
+        "auditVerdict": "added_phase2",
+        "notes": "Trimmed park hedge segment."
+      },
+      {
+        "id": "bus-shelter",
+        "trisLod0": 132,
+        "trisLod1": 108,
+        "bytesLod0": 19140,
+        "bytesLod1": 17460,
+        "auditVerdict": "added_phase2",
+        "notes": "Glazed transit shelter for Cáceres urban bus stops."
+      },
+      {
+        "id": "park-bench",
+        "trisLod0": 72,
+        "trisLod1": 48,
+        "bytesLod0": 14964,
+        "bytesLod1": 13280,
+        "auditVerdict": "added_phase2",
+        "notes": "Wood-and-iron public bench."
+      },
+      {
+        "id": "waste-bin",
+        "trisLod0": 76,
+        "trisLod1": 52,
+        "bytesLod0": 14584,
+        "bytesLod1": 13284,
+        "auditVerdict": "added_phase2",
+        "notes": "Street waste bin."
+      },
+      {
+        "id": "fountain",
+        "trisLod0": 132,
+        "trisLod1": 80,
+        "bytesLod0": 17988,
+        "bytesLod1": 14988,
+        "auditVerdict": "added_phase2",
+        "notes": "Granite bowl fountain for Casco and Cánovas plazas."
       },
       {
         "id": "traffic-signals",
         "trisLod0": 92,
         "trisLod1": 60,
-        "bytesLod0": 28328,
-        "bytesLod1": 26596,
-        "auditVerdict": "reuse",
+        "bytesLod0": 15844,
+        "bytesLod1": 14116,
+        "auditVerdict": "retained",
         "notes": "Clean silhouette for 123 mapped junctions."
       },
       {
         "id": "stop-sign",
         "trisLod0": 76,
         "trisLod1": 52,
-        "bytesLod0": 27064,
-        "bytesLod1": 25764,
-        "auditVerdict": "reuse",
-        "notes": "Adequate crisp octagonal traffic sign."
+        "bytesLod0": 14584,
+        "bytesLod1": 13284,
+        "auditVerdict": "retained",
+        "notes": "Octagonal traffic sign."
       },
       {
         "id": "give-way-sign",
         "trisLod0": 44,
         "trisLod1": 36,
-        "bytesLod0": 25324,
-        "bytesLod1": 24888,
-        "auditVerdict": "reuse",
-        "notes": "Adequate triangular sign."
+        "bytesLod0": 12844,
+        "bytesLod1": 12408,
+        "auditVerdict": "retained",
+        "notes": "Triangular traffic sign."
       }
     ],
-    "missingStreetFurnitureToAdd": [
-      { "id": "bus-shelter", "osmCount": 214, "priority": "high" },
-      { "id": "park-bench", "osmCount": 17, "priority": "medium" },
-      { "id": "waste-bin", "osmCount": 9, "priority": "medium" },
-      { "id": "bollard", "osmCount": 8, "priority": "medium" },
-      { "id": "public-fountain", "osmCount": 10, "priority": "low" },
-      { "id": "bicycle-rack", "osmCount": 7, "priority": "low" }
-    ],
-    "pipelineOptimizationFinding": "Each of the 44 CityKit GLBs currently embeds a duplicate ~22 KB PNG copy of the 256x256 kit_atlas (contributing ~968 KB of the 1,215,895 B total in public/models/citykit/). Deduplication at glTF material load time is already implemented in src/world/city-kit.ts, and externalizing or packing shared atlases can cut transfer payload further in FASE 6."
+    "atlasCompressionNote": "CityKit v2 upgraded to schemaVersion 3 with 256x192 (8x6 swatch grid) shared atlas across all 72 GLBs (total 1,198,984 B), adding 14 new architectural, vegetation, and street furniture modules."
   }
 }

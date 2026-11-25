@@ -12,6 +12,16 @@ import {
   stableBuildingHash,
   type BuildingStyleSpec,
 } from './building-styles';
+import {
+  addCourtyardWalls,
+  addFacadeReliefFrames,
+  addGabledEndWalls,
+  addRecessedWindowCell,
+  addStylizedRoof,
+  buildSetbackPenthouseSpec,
+  solidTrimUv,
+  type VolumeItem,
+} from './building-volumes';
 import { addLandmarkGeometry, isTowerLandmark } from './landmark-geometry';
 import { clipToBounds, sampleHeight, type RoadPoint, type RoadPoint3 } from './road-geometry';
 import type {
@@ -24,12 +34,6 @@ import type {
   LandmarkModelInstance,
   ProjectedBounds,
 } from './types';
-
-interface Footprint extends AnalyzedBuilding {
-  readonly fullPoints: readonly RoadPoint[];
-  readonly ridgeAxis: 0 | 1;
-  readonly ridgeHalfSpan: number;
-}
 
 function centroid(points: readonly RoadPoint[]): RoadPoint {
   const area = polygonSignedArea(points);
@@ -69,6 +73,42 @@ function areaBounds(points: readonly RoadPoint[]): {
   return { minX, maxX, minZ, maxZ };
 }
 
+function pointInsidePolygon2d(x: number, z: number, points: readonly RoadPoint[]): boolean {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i, i += 1) {
+    const xi = points[i]?.[0] ?? 0;
+    const zi = points[i]?.[1] ?? 0;
+    const xj = points[j]?.[0] ?? 0;
+    const zj = points[j]?.[1] ?? 0;
+    if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function filterValidInnerRings(
+  outerPoints: readonly RoadPoint[],
+  candidateRings: readonly (readonly (readonly [number, number])[])[] | undefined,
+): RoadPoint[][] | undefined {
+  if (!candidateRings || candidateRings.length === 0) return undefined;
+  const ob = areaBounds(outerPoints);
+  const valid: RoadPoint[][] = [];
+  for (const ring of candidateRings) {
+    if (ring.length < 3) continue;
+    const clipped = clipToBounds(ring, {
+      minX: ob.minX - 0.1,
+      maxX: ob.maxX + 0.1,
+      minZ: ob.minZ - 0.1,
+      maxZ: ob.maxZ + 0.1,
+    });
+    if (clipped.length < 3) continue;
+    const c = centroid(clipped);
+    if (pointInsidePolygon2d(c[0], c[1], outerPoints)) {
+      valid.push(clipped);
+    }
+  }
+  return valid.length > 0 ? valid : undefined;
+}
+
 export function roofShapeFor(
   feature: ChunkFeature,
   points: readonly RoadPoint[],
@@ -90,26 +130,47 @@ function buildFootprint(
   feature: ChunkFeature,
   points: readonly RoadPoint[],
   shapePoints = points,
-): Footprint | undefined {
+  overrideFloors?: number | null,
+  overrideHeightMeters?: number | null,
+): VolumeItem | undefined {
   if (!feature.id || points.length < 3) return undefined;
-  const totalHeight = Math.max(
-    2.8,
-    Math.min(80, feature.visualHeightMeters ?? (feature.visualFloors ?? 2) * 3),
-  );
   const inferred = roofShapeFor(feature, shapePoints);
   const shape = effectiveRoofShape(feature, inferred);
   const style: BuildingStyleSpec = classifyBuilding(feature, shape);
   const seed = stableBuildingHash(feature.id);
-  const defaultRoofH = style.isHistoric ? 1.25 : style.isIndustrial ? 0.65 : 0.85;
+
+  let rawFloors = overrideFloors ?? feature.visualFloors ?? feature.floors ?? 2;
+  rawFloors = Math.max(1, Math.min(20, rawFloors));
+  let totalHeight: number;
+  if (overrideHeightMeters !== undefined && overrideHeightMeters !== null) {
+    totalHeight = overrideHeightMeters;
+  } else if (overrideFloors !== undefined && overrideFloors !== null) {
+    totalHeight =
+      style.floorHeightsMeters.ground + Math.max(0, rawFloors - 1) * style.floorHeightsMeters.upper;
+  } else if (feature.visualHeightMeters !== undefined) {
+    totalHeight = feature.visualHeightMeters;
+  } else {
+    totalHeight =
+      style.floorHeightsMeters.ground + Math.max(0, rawFloors - 1) * style.floorHeightsMeters.upper;
+  }
+  totalHeight = Math.max(2.8, Math.min(80, totalHeight));
+
+  const defaultRoofH = style.isHistoric ? 1.35 : style.isIndustrial ? 0.85 : 1.05;
   const roofHeight =
-    shape === 'flat' ? 0 : Math.max(0.35, Math.min(8, feature.roofHeightMeters ?? defaultRoofH));
+    shape === 'flat' ? 0 : Math.max(0.45, Math.min(8, feature.roofHeightMeters ?? defaultRoofH));
   const b = areaBounds(shapePoints);
   const shapeWidth = b.maxX - b.minX;
   const shapeDepth = b.maxZ - b.minZ;
   const ridgeAxis: 0 | 1 = shapeWidth >= shapeDepth ? 1 : 0;
   const center = centroid(shapePoints);
   const wallHeight = Math.max(2.4, totalHeight - roofHeight);
-  const floorCount = Math.max(1, Math.min(20, Math.round(feature.visualFloors ?? wallHeight / 3)));
+  const floorCount = Math.max(
+    1,
+    Math.min(20, Math.round(overrideFloors ?? feature.visualFloors ?? wallHeight / 3)),
+  );
+
+  const innerRings = filterValidInnerRings(points, feature.innerRings);
+
   return {
     feature,
     points,
@@ -131,7 +192,69 @@ function buildFootprint(
       0.1,
       ...shapePoints.map((point) => Math.abs(point[ridgeAxis] - center[ridgeAxis])),
     ),
+    innerRings,
   };
+}
+
+function expandRenderVolumes(
+  baseVolumes: readonly VolumeItem[],
+  bounds: ProjectedBounds,
+): {
+  readonly mainVolumes: readonly VolumeItem[];
+  readonly setbackVolumes: readonly VolumeItem[];
+} {
+  const mainVolumes: VolumeItem[] = [];
+  const setbackVolumes: VolumeItem[] = [];
+
+  for (const base of baseVolumes) {
+    const parts = base.feature.parts;
+    if (parts && parts.length >= 2) {
+      let emittedPart = false;
+      for (let i = 0; i < parts.length; i += 1) {
+        const part = parts[i];
+        if (!part || part.pts.length < 3) continue;
+        const clipped = clipToBounds(part.pts, bounds);
+        if (clipped.length < 3) continue;
+        const partFeature: ChunkFeature = {
+          ...base.feature,
+          id: `${base.feature.id}#p${i}`,
+        };
+        const vol = buildFootprint(
+          partFeature,
+          clipped,
+          part.pts,
+          part.floors ?? undefined,
+          part.heightMeters ?? undefined,
+        );
+        if (vol) {
+          mainVolumes.push({
+            ...vol,
+            feature: base.feature,
+            seed: stableBuildingHash(`${base.feature.id}:${i}`),
+          });
+          emittedPart = true;
+        }
+      }
+      if (emittedPart) continue;
+    }
+
+    const attic = buildSetbackPenthouseSpec(base);
+    if (attic && base.floorCount >= 5) {
+      const clippedAttic = clipToBounds(attic.fullPoints, bounds);
+      const reducedHeight = attic.baseElevationOffset ?? base.wallHeight;
+      mainVolumes.push({
+        ...base,
+        wallHeight: reducedHeight,
+        floorCount: Math.max(1, base.floorCount - 1),
+      });
+      if (clippedAttic.length >= 3) {
+        setbackVolumes.push({ ...attic, points: clippedAttic });
+      }
+      continue;
+    }
+    mainVolumes.push(base);
+  }
+  return { mainVolumes, setbackVolumes };
 }
 
 function localHeight(terrain: BuiltTerrainChunk, point: RoadPoint): number {
@@ -142,7 +265,7 @@ function worldPoint(point: RoadPoint, y: number): RoadPoint3 {
   return [point[0], y, point[1]];
 }
 
-function tileUv(col: number, uvRow: number): BuildingUv[] {
+export function tileUv(col: number, uvRow: number): BuildingUv[] {
   const columns = 8;
   const rows = 8;
   const inset = 0.002;
@@ -163,19 +286,20 @@ function selectPanelColumn(
   edge: number,
   panel: number,
   panels: number,
-  floor: number,
   exposed: boolean,
-  isIndustrial: boolean,
+  isHistoric: boolean,
+  lod: number,
+  floor: number,
+  commercial: boolean,
 ): number {
-  if (!exposed) return 7; // Blind solid masonry on party walls
-  if (panels >= 3 && (panel === 0 || panel === panels - 1) && (seed + edge) % 3 === 0) return 6;
-  const baySeed = stableBuildingHash(`${seed}:${edge}:${panel}:${floor}`);
-  if (floor === 0) {
-    if (isIndustrial) return baySeed % 3 === 0 ? 2 : 7;
-    if (panel === Math.floor(panels / 2)) return baySeed % 2 === 0 ? 2 : 1;
-    return [0, 1, 3, 4][baySeed % 4] ?? 0;
+  if (!exposed) return 7;
+  if (lod === 1) {
+    if (floor === 0) return commercial ? 1 : 3;
+    return (seed + edge + panel + floor) % 2 === 0 ? 1 : 4;
   }
-  return [0, 1, 2, 3, 4, 5][baySeed % 6] ?? 0;
+  if (isHistoric && panels >= 3 && (panel === 0 || panel === panels - 1) && (seed + edge) % 3 === 0)
+    return 6;
+  return 7;
 }
 
 function onChunkBoundary(a: RoadPoint, b: RoadPoint, bounds: ProjectedBounds): boolean {
@@ -190,7 +314,7 @@ function onChunkBoundary(a: RoadPoint, b: RoadPoint, bounds: ProjectedBounds): b
 
 function addProjectingStrip(
   writer: BuildingGeometryWriter,
-  material: Footprint['style']['wallMaterial'],
+  material: VolumeItem['style']['wallMaterial'],
   start: RoadPoint,
   end: RoadPoint,
   outward: RoadPoint,
@@ -200,9 +324,11 @@ function addProjectingStrip(
   topOffset: number,
   projection: number,
   color: BuildingColor,
+  trimRow = 0,
 ): void {
   const s: RoadPoint = [start[0] + outward[0] * projection, start[1] + outward[1] * projection];
   const e: RoadPoint = [end[0] + outward[0] * projection, end[1] + outward[1] * projection];
+  const uv = solidTrimUv(7, trimRow);
   writer.addQuad(
     material,
     [
@@ -212,22 +338,25 @@ function addProjectingStrip(
       worldPoint(s, groundStart + topOffset),
     ],
     color,
-    tileUv(7, 0) as [BuildingUv, BuildingUv, BuildingUv, BuildingUv],
+    uv,
   );
 }
 
 function addWalls(
   writer: BuildingGeometryWriter,
-  item: Footprint,
+  item: VolumeItem,
   exposedEdges: readonly boolean[],
   terrain: BuiltTerrainChunk,
   bounds: ProjectedBounds,
-  detailed: boolean,
+  lod: number,
   makeCollider = false,
 ): void {
   const polygon = item.points;
   const signedArea = polygonSignedArea(polygon);
   const { style, floorCount, seed } = item;
+  const baseOffset = item.baseElevationOffset ?? 0;
+  const isSetback = baseOffset > 0.1;
+  const detailed = lod === 0;
 
   for (let edge = 0; edge < polygon.length; edge += 1) {
     const start = polygon[edge];
@@ -240,9 +369,18 @@ function addWalls(
       signedArea >= 0
         ? [(end[1] - start[1]) / length, -(end[0] - start[0]) / length]
         : [-(end[1] - start[1]) / length, (end[0] - start[0]) / length];
-    const exposed = exposedEdges[edge] ?? true;
-    const panels = detailed ? Math.max(1, Math.ceil(length / 3.8)) : 1;
-    const floors = detailed ? floorCount : 1;
+    const exposed = isSetback ? true : (exposedEdges[edge] ?? true);
+    const activeDetail = detailed && exposed && length >= 3.2;
+    const panels = activeDetail
+      ? Math.max(1, Math.min(5, Math.round(length / 5.6)))
+      : lod === 1 && exposed && length >= 7.0
+        ? 2
+        : 1;
+    const floors = activeDetail
+      ? Math.min(floorCount, 7)
+      : lod === 1 && exposed
+        ? Math.min(floorCount, 5)
+        : 1;
     const startGround = localHeight(terrain, start);
     const endGround = localHeight(terrain, end);
 
@@ -261,30 +399,67 @@ function addWalls(
       const groundEnd = startGround + (endGround - startGround) * t1;
 
       for (let floor = 0; floor < floors; floor += 1) {
-        const floorBottom = (item.wallHeight * floor) / floors;
-        const floorTop = (item.wallHeight * (floor + 1)) / floors;
-        const uvRow = style.atlasBand * 2 + (floor === 0 ? 0 : 1);
-        const col = detailed
-          ? selectPanelColumn(seed, edge, panel, panels, floor, exposed, style.isIndustrial)
-          : 7;
-        writer.addQuad(
-          style.wallMaterial,
-          [
-            worldPoint(panelStart, groundStart + floorBottom),
-            worldPoint(panelEnd, groundEnd + floorBottom),
-            worldPoint(panelEnd, groundEnd + floorTop),
-            worldPoint(panelStart, groundStart + floorTop),
-          ],
-          style.tint,
-          tileUv(col, uvRow) as [BuildingUv, BuildingUv, BuildingUv, BuildingUv],
-        );
+        const floorBottom = baseOffset + (item.wallHeight * floor) / floors;
+        const floorTop = baseOffset + (item.wallHeight * (floor + 1)) / floors;
+        if (activeDetail) {
+          addRecessedWindowCell(
+            writer,
+            item,
+            panelStart,
+            panelEnd,
+            outward,
+            groundStart,
+            groundEnd,
+            floorBottom,
+            floorTop,
+            floor,
+            panel,
+            exposed,
+            isSetback,
+          );
+        } else {
+          const uvRow = style.atlasBand * 2 + (floor === 0 && !isSetback ? 0 : 1);
+          const col = selectPanelColumn(
+            seed,
+            edge,
+            panel,
+            panels,
+            exposed,
+            style.isHistoric,
+            lod,
+            floor,
+            Boolean(item.feature.commercial),
+          );
+          writer.addQuad(
+            style.wallMaterial,
+            [
+              worldPoint(panelStart, groundStart + floorBottom),
+              worldPoint(panelEnd, groundEnd + floorBottom),
+              worldPoint(panelEnd, groundEnd + floorTop),
+              worldPoint(panelStart, groundStart + floorTop),
+            ],
+            style.tint,
+            tileUv(col, uvRow) as [BuildingUv, BuildingUv, BuildingUv, BuildingUv],
+          );
+        }
       }
     }
 
     if (detailed && exposed) {
-      // Emit one belt course strip per exposed (edge, floor) rather than per panel.
+      addFacadeReliefFrames(
+        writer,
+        item,
+        start,
+        end,
+        outward,
+        startGround,
+        endGround,
+        panels,
+        floors,
+      );
+      // Floor belt courses ("impostas")
       for (let floor = 0; floor < floors - 1; floor += 1) {
-        const floorTop = (item.wallHeight * (floor + 1)) / floors;
+        const floorTop = baseOffset + (item.wallHeight * (floor + 1)) / floors;
         addProjectingStrip(
           writer,
           style.wallMaterial,
@@ -293,27 +468,31 @@ function addWalls(
           outward,
           startGround,
           endGround,
-          floorTop - 0.1,
-          floorTop - 0.02,
-          0.055,
-          [style.tint[0] * 0.84, style.tint[1] * 0.84, style.tint[2] * 0.84],
+          floorTop - 0.11,
+          floorTop + 0.02,
+          floor === 0 && item.feature.commercial ? 0.14 : 0.075,
+          style.trimColor,
+          style.atlasBand * 2,
         );
       }
-      // Ground-floor stone plinth ("zócalo") anchors every facade cleanly onto sloped sidewalks
-      addProjectingStrip(
-        writer,
-        style.wallMaterial,
-        start,
-        end,
-        outward,
-        startGround,
-        endGround,
-        -0.25,
-        0.72,
-        0.05,
-        style.plinthColor,
-      );
-      // Top cornice molding ("cornisa") or flat roof raised parapet ("peto de azotea")
+      if (!isSetback) {
+        // Ground-floor carved plinth ("zócalo") anchoring facades cleanly onto slopes
+        addProjectingStrip(
+          writer,
+          style.wallMaterial,
+          start,
+          end,
+          outward,
+          startGround,
+          endGround,
+          -0.25,
+          item.feature.commercial ? 0.85 : 0.72,
+          0.07,
+          style.plinthColor,
+          style.atlasBand * 2,
+        );
+      }
+      // Top cornice molding ("cornisa") or flat roof parapet ("peto de azotea")
       if (style.parapetHeightMeters > 0) {
         const ph = style.parapetHeightMeters;
         addProjectingStrip(
@@ -324,10 +503,11 @@ function addWalls(
           outward,
           startGround,
           endGround,
-          item.wallHeight - 0.12,
-          item.wallHeight + ph,
-          0.06,
-          [style.tint[0] * 0.9, style.tint[1] * 0.9, style.tint[2] * 0.9],
+          baseOffset + item.wallHeight - 0.14,
+          baseOffset + item.wallHeight + ph,
+          0.09,
+          style.trimColor,
+          style.atlasBand * 2 + 1,
         );
       } else {
         addProjectingStrip(
@@ -338,10 +518,11 @@ function addWalls(
           outward,
           startGround,
           endGround,
-          item.wallHeight - 0.18,
-          item.wallHeight,
-          0.11,
-          [style.tint[0] * 0.88, style.tint[1] * 0.88, style.tint[2] * 0.88],
+          baseOffset + item.wallHeight - 0.22,
+          baseOffset + item.wallHeight,
+          0.13,
+          style.trimColor,
+          style.atlasBand * 2 + 1,
         );
       }
     }
@@ -355,95 +536,14 @@ function addWalls(
       writer.addColliderTriangle([bottomStart, topEnd, topStart]);
     }
   }
-}
 
-function clipHalf(
-  points: readonly RoadPoint[],
-  axis: 0 | 1,
-  middle: number,
-  keepBelow: boolean,
-): RoadPoint[] {
-  const clipped: RoadPoint[] = [];
-  let previous = points.at(-1);
-  for (const current of points) {
-    if (!previous) continue;
-    const previousInside = keepBelow ? previous[axis] <= middle : previous[axis] >= middle;
-    const currentInside = keepBelow ? current[axis] <= middle : current[axis] >= middle;
-    if (currentInside !== previousInside) {
-      const delta = current[axis] - previous[axis];
-      const t = Math.abs(delta) < 1e-8 ? 0 : (middle - previous[axis]) / delta;
-      clipped.push([
-        previous[0] + (current[0] - previous[0]) * t,
-        previous[1] + (current[1] - previous[1]) * t,
-      ]);
+  if (detailed) {
+    if (item.innerRings && item.innerRings.length > 0) {
+      addCourtyardWalls(writer, item, item.innerRings, terrain, bounds, true, tileUv);
     }
-    if (currentInside) clipped.push(current);
-    previous = current;
-  }
-  return clipped;
-}
-
-function expandForEaves(
-  points: readonly RoadPoint[],
-  overhang: number,
-  center: RoadPoint,
-): RoadPoint[] {
-  if (overhang <= 0.01) return [...points];
-  return points.map((pt) => {
-    const dx = pt[0] - center[0];
-    const dz = pt[1] - center[1];
-    const dist = Math.hypot(dx, dz);
-    if (dist < 0.25) return pt;
-    return [pt[0] + (dx / dist) * overhang, pt[1] + (dz / dist) * overhang];
-  });
-}
-
-function addRoof(
-  writer: BuildingGeometryWriter,
-  item: Footprint,
-  terrain: BuiltTerrainChunk,
-  detailed: boolean,
-): void {
-  const overhang = detailed && item.shape !== 'flat' ? item.style.eaveOverhangMeters : 0;
-  const roofPoints = expandForEaves(item.points, overhang, item.centroid);
-  const eaveDrop = overhang > 0 ? 0.14 : 0;
-  const top: RoadPoint3[] = roofPoints.map((point) =>
-    worldPoint(point, localHeight(terrain, point) + item.wallHeight - eaveDrop),
-  );
-  const roofTint: BuildingColor = item.style.isIndustrial ? [0.78, 0.82, 0.85] : [1, 1, 1];
-  const mat = item.style.roofMaterial;
-
-  if (item.shape === 'flat' || !detailed) {
-    writer.addPolygon(mat, top, roofTint, (point) => [point[0] / 4, point[2] / 4]);
-    return;
-  }
-  if (item.shape === 'hipped') {
-    const centerY = localHeight(terrain, item.centroid) + item.wallHeight + item.roofHeight;
-    const center = worldPoint(item.centroid, centerY);
-    for (let index = 0; index < top.length; index += 1) {
-      const first = top[index];
-      const second = top[(index + 1) % top.length];
-      if (!first || !second) continue;
-      writer.addTriangle(mat, [first, second, center], roofTint, [
-        [first[0] / 4, first[2] / 4],
-        [second[0] / 4, second[2] / 4],
-        [center[0] / 4, center[2] / 4],
-      ]);
+    if (item.shape === 'gabled') {
+      addGabledEndWalls(writer, item, terrain, bounds);
     }
-    return;
-  }
-  const splitAxis = item.ridgeAxis;
-  const middle = item.centroid[splitAxis];
-  const maxDistance = item.ridgeHalfSpan + overhang;
-  for (const keepBelow of [true, false]) {
-    const half = clipHalf(roofPoints, splitAxis, middle, keepBelow);
-    if (half.length < 3) continue;
-    const roof = half.map((point) => {
-      const rise =
-        item.roofHeight * Math.min(1, Math.abs(point[splitAxis] - middle) / maxDistance) - eaveDrop;
-      return worldPoint(point, localHeight(terrain, point) + item.wallHeight + rise);
-    });
-    writer.addPolygon(mat, roof, roofTint, (point) => [point[0] / 4, point[2] / 4]);
   }
 }
 
@@ -473,7 +573,7 @@ function roadDistance(point: RoadPoint, roads: readonly ChunkFeature[]): number 
 }
 
 function signSlot(
-  item: Footprint,
+  item: VolumeItem,
   terrain: BuiltTerrainChunk,
   roads: readonly ChunkFeature[],
 ): BuildingSignSlot | undefined {
@@ -516,8 +616,9 @@ function signSlot(
 }
 
 function buildLod(
-  analyzed: readonly Footprint[],
+  renderVolumes: readonly VolumeItem[],
   exposedMap: ReadonlyMap<string, readonly boolean[]>,
+  lod1Base: readonly VolumeItem[],
   features: readonly ChunkFeature[],
   terrain: BuiltTerrainChunk,
   bounds: ProjectedBounds,
@@ -526,15 +627,20 @@ function buildLod(
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerZ = (bounds.minZ + bounds.maxZ) / 2;
   const writer = new BuildingGeometryWriter(centerX, centerZ);
-  for (const item of analyzed) {
+  const detailed = lod === 0;
+  const list = detailed ? renderVolumes : lod1Base;
+
+  for (let i = 0; i < list.length; i += 1) {
+    const item = list[i];
+    if (!item) continue;
     if (
       item.feature.landmarkModelPath &&
       /^landmarks\/w\d+\.glb$/.test(item.feature.landmarkModelPath)
     )
       continue;
-    const exposed = exposedMap.get(item.feature.id ?? '') ?? [];
-    addWalls(writer, item, exposed, terrain, bounds, lod === 0);
-    addRoof(writer, item, terrain, lod === 0);
+    const exposed = detailed ? (exposedMap.get(`${item.feature.id ?? ''}:${i}`) ?? []) : [];
+    addWalls(writer, item, exposed, terrain, bounds, lod);
+    addStylizedRoof(writer, item, terrain, detailed);
   }
   addLandmarkGeometry(writer, features, terrain, bounds, lod);
   const surfaces = writer.build();
@@ -546,8 +652,9 @@ function buildLod(
 }
 
 function buildExtras(
-  analyzed: readonly Footprint[],
-  exposedMap: ReadonlyMap<string, readonly boolean[]>,
+  baseAnalyzed: readonly VolumeItem[],
+  detailVolumes: readonly VolumeItem[],
+  exposedLod0Map: ReadonlyMap<string, readonly boolean[]>,
   features: readonly ChunkFeature[],
   terrain: BuiltTerrainChunk,
   bounds: ProjectedBounds,
@@ -565,7 +672,7 @@ function buildExtras(
   const roads = features.filter(
     (feature) => feature.featureType === 'road' || feature.featureType === 'pedestrian',
   );
-  for (const item of analyzed) {
+  for (const item of baseAnalyzed) {
     const feature = item.feature;
     const center = item.centroid;
     const owner =
@@ -602,7 +709,8 @@ function buildExtras(
       owner &&
       feature.zone === 'casco' &&
       item.wallHeight >= 5 &&
-      (landmarkTower || roofHash % 11 === 0)
+      (landmarkTower ||
+        ((item.style.archetype === 'casco_palace' || item.style.isSacred) && roofHash % 7 === 0))
     ) {
       storks.push({
         buildingId: roofId,
@@ -628,7 +736,13 @@ function buildExtras(
       storks.push({ buildingId: ciguenas.id ?? '', position: [px, ground + 24 + 0.85 + 0.75, pz] });
     }
   }
-  const detailBatches = collectBuildingDetails(analyzed, exposedMap, roads, terrain, bounds);
+  const detailBatches = collectBuildingDetails(
+    detailVolumes as readonly AnalyzedBuilding[],
+    exposedLod0Map,
+    roads,
+    terrain,
+    bounds,
+  );
   return { signs, anchors, detailBatches, models, storks };
 }
 
@@ -637,26 +751,47 @@ export function buildBuildingChunk(
   terrain: BuiltTerrainChunk,
   bounds: ProjectedBounds,
 ): BuiltBuildingChunk {
-  const analyzed: Footprint[] = [];
+  const baseAnalyzed: VolumeItem[] = [];
   for (const feature of features) {
     if (feature.featureType !== 'building' || !feature.points || feature.points.length < 3)
       continue;
     const item = buildFootprint(feature, clipToBounds(feature.points, bounds), feature.points);
-    if (item) analyzed.push(item);
+    if (item) baseAnalyzed.push(item);
   }
-  const exposedMap = new Map<string, readonly boolean[]>();
-  for (const item of analyzed)
-    exposedMap.set(item.feature.id ?? '', computeExposedEdges(item, analyzed));
+
+  const { mainVolumes, setbackVolumes } = expandRenderVolumes(baseAnalyzed, bounds);
+  const allLod0Volumes = [...mainVolumes, ...setbackVolumes];
+  const exposedLod0Map = new Map<string, readonly boolean[]>();
+  const exposedByVolumeIndex = new Map<string, readonly boolean[]>();
+  for (let i = 0; i < allLod0Volumes.length; i += 1) {
+    const vol = allLod0Volumes[i];
+    if (!vol) continue;
+    const neighbors = vol.baseElevationOffset ? [] : mainVolumes;
+    const exp = computeExposedEdges(vol, neighbors, vol.wallHeight - 0.35);
+    exposedLod0Map.set(`${vol.feature.id ?? ''}:${i}`, exp);
+    exposedByVolumeIndex.set(`${vol.feature.id ?? ''}#${i}`, exp);
+  }
 
   const levels = [0, 1, 2].map((lod) =>
-    buildLod(analyzed, exposedMap, features, terrain, bounds, lod),
+    buildLod(allLod0Volumes, exposedLod0Map, baseAnalyzed, features, terrain, bounds, lod),
   );
-  const extras = buildExtras(analyzed, exposedMap, features, terrain, bounds);
+  const detailVolumes = allLod0Volumes.map((vol, i) => ({
+    ...vol,
+    detailKey: `${vol.feature.id ?? ''}#${i}`,
+  }));
+  const extras = buildExtras(
+    baseAnalyzed,
+    detailVolumes,
+    exposedByVolumeIndex,
+    features,
+    terrain,
+    bounds,
+  );
   const colliderWriter = new BuildingGeometryWriter(
     (bounds.minX + bounds.maxX) / 2,
     (bounds.minZ + bounds.maxZ) / 2,
   );
-  for (const item of analyzed) addWalls(colliderWriter, item, [], terrain, bounds, false, true);
+  for (const item of baseAnalyzed) addWalls(colliderWriter, item, [], terrain, bounds, 2, true);
   const collider = colliderWriter.buildCollider();
   const footprints = features
     .filter(

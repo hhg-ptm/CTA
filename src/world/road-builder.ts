@@ -4,6 +4,7 @@ import type {
   ChunkFeature,
   ProjectedBounds,
   RoadPropBatch,
+  RoadPropKind,
   RoadSurfaceStyle,
 } from './types';
 import {
@@ -353,32 +354,147 @@ function addIntersectionPatches(
   }
 }
 
+function classifyTreeVariant(prop: ChunkFeature): RoadPropKind {
+  if (prop.treeSpecies) {
+    return `tree_${prop.treeSpecies}` as RoadPropKind;
+  }
+  const [x, z] = prop.position ?? [0, 0];
+  const distPlaza = Math.hypot(x, z);
+  const hash = [...(prop.id ?? `${x.toFixed(0)}:${z.toFixed(0)}`)].reduce(
+    (acc, ch) => (acc * 33 + ch.charCodeAt(0)) >>> 0,
+    17,
+  );
+  // Cánovas boulevard corridor (~[-850..-280, -800..-220]) showcases palms and plane trees
+  if (x >= -850 && x <= -280 && z >= -800 && z <= -220) {
+    const roll = hash % 10;
+    if (roll < 3) return 'tree_palm';
+    if (roll < 7) return 'tree_deciduous';
+    return 'tree_oak';
+  }
+  // Historic old town plazas: holm oaks and cypresses
+  if (distPlaza <= 280) {
+    const roll = hash % 10;
+    if (roll < 3) return 'tree_cypress';
+    if (roll < 7) return 'tree_oak';
+    return 'tree_deciduous';
+  }
+  // Outer avenues, parks & residential zones: pines, deciduous plane trees, holm oaks
+  const roll = hash % 10;
+  if (roll < 4) return 'tree_deciduous';
+  if (roll < 7) return 'tree_oak';
+  return 'tree_pine';
+}
+
+function resolvePropKind(prop: ChunkFeature): RoadPropKind {
+  if (prop.kind === 'traffic_sign' && (prop.trafficSign ?? '').includes('206')) return 'give_way';
+  if (prop.kind === 'tree') return classifyTreeVariant(prop);
+  if (prop.kind === 'bus_stop' || prop.kind === 'shelter') return 'bus_shelter';
+  if (prop.kind === 'scrub') return 'shrub';
+  if (prop.kind === 'street_lamp') {
+    const [x, z] = prop.position ?? [0, 0];
+    return Math.hypot(x, z) > 260 ? 'street_lamp_modern' : 'street_lamp';
+  }
+  return prop.kind as RoadPropKind;
+}
+
 function buildPropBatches(
   props: readonly ChunkFeature[],
   terrain: BuiltTerrainChunk,
   centerX: number,
   centerZ: number,
 ): RoadPropBatch[] {
-  const supported = new Map<RoadPropBatch['kind'], { positions: number[]; headings: number[] }>([
+  const supported = new Map<RoadPropKind, { positions: number[]; headings: number[] }>([
     ['traffic_signals', { positions: [], headings: [] }],
     ['stop', { positions: [], headings: [] }],
     ['give_way', { positions: [], headings: [] }],
     ['street_lamp', { positions: [], headings: [] }],
+    ['street_lamp_modern', { positions: [], headings: [] }],
     ['tree', { positions: [], headings: [] }],
+    ['tree_deciduous', { positions: [], headings: [] }],
+    ['tree_oak', { positions: [], headings: [] }],
+    ['tree_pine', { positions: [], headings: [] }],
+    ['tree_palm', { positions: [], headings: [] }],
+    ['tree_cypress', { positions: [], headings: [] }],
+    ['shrub', { positions: [], headings: [] }],
+    ['hedge', { positions: [], headings: [] }],
+    ['bus_shelter', { positions: [], headings: [] }],
+    ['bench', { positions: [], headings: [] }],
+    ['waste_basket', { positions: [], headings: [] }],
+    ['fountain', { positions: [], headings: [] }],
   ]);
   for (const prop of props) {
-    const kind =
-      prop.kind === 'traffic_sign' && (prop.trafficSign ?? '').includes('206')
-        ? 'give_way'
-        : (prop.kind as RoadPropBatch['kind']);
+    const kind = resolvePropKind(prop);
     const batch = supported.get(kind);
     if (!batch || !prop.position) continue;
-    batch.positions.push(
-      prop.position[0] - centerX,
-      sampleHeight(terrain, prop.position[0], prop.position[1]),
-      prop.position[1] - centerZ,
-    );
-    batch.headings.push(((prop.directionDegrees ?? 0) * Math.PI) / 180);
+    const x = prop.position[0] - centerX;
+    const y = sampleHeight(terrain, prop.position[0], prop.position[1]);
+    const z = prop.position[1] - centerZ;
+    const heading = ((prop.directionDegrees ?? 0) * Math.PI) / 180;
+    batch.positions.push(x, y, z);
+    batch.headings.push(heading);
+
+    // Pair park benches/trees/bus stops with subtle decorative low-poly shrubs/hedges when chunk has multiple
+    if (
+      props.length > 25 &&
+      (kind === 'tree_oak' || kind === 'bench' || kind === 'fountain') &&
+      Math.abs(Math.round(x * 7 + z * 11)) % 4 === 0
+    ) {
+      const shrubBatch = supported.get('shrub');
+      if (shrubBatch) {
+        shrubBatch.positions.push(x + 1.35, y, z + 0.9);
+        shrubBatch.headings.push(heading + 0.7);
+      }
+    }
+  }
+  if (props.length > 25) {
+    // Consolidate tiny singleton tree species (<= 3 instances) into the chunk's dominant
+    // tree batch so draw calls stay low while preserving multi-species silhouettes.
+    const treeKeys: RoadPropKind[] = [
+      'tree_deciduous',
+      'tree_oak',
+      'tree_pine',
+      'tree_palm',
+      'tree_cypress',
+    ];
+    let dominantTree: { kind: RoadPropKind; count: number } | undefined;
+    for (const tk of treeKeys) {
+      const b = supported.get(tk);
+      const c = b ? b.headings.length : 0;
+      if (c > (dominantTree?.count ?? 0)) dominantTree = { kind: tk, count: c };
+    }
+    if (dominantTree && dominantTree.count >= 4) {
+      const domBatch = supported.get(dominantTree.kind)!;
+      for (const tk of treeKeys) {
+        if (tk === dominantTree.kind) continue;
+        const b = supported.get(tk);
+        if (b && b.headings.length > 0 && b.headings.length <= 3) {
+          domBatch.positions.push(...b.positions);
+          domBatch.headings.push(...b.headings);
+          b.positions.length = 0;
+          b.headings.length = 0;
+        }
+      }
+    }
+    const streetLampLegacy = supported.get('street_lamp');
+    const streetLampModern = supported.get('street_lamp_modern');
+    if (
+      streetLampLegacy &&
+      streetLampModern &&
+      streetLampLegacy.headings.length > 0 &&
+      streetLampModern.headings.length > 0
+    ) {
+      if (streetLampLegacy.headings.length <= 2) {
+        streetLampModern.positions.push(...streetLampLegacy.positions);
+        streetLampModern.headings.push(...streetLampLegacy.headings);
+        streetLampLegacy.positions.length = 0;
+        streetLampLegacy.headings.length = 0;
+      } else if (streetLampModern.headings.length <= 2) {
+        streetLampLegacy.positions.push(...streetLampModern.positions);
+        streetLampLegacy.headings.push(...streetLampModern.headings);
+        streetLampModern.positions.length = 0;
+        streetLampModern.headings.length = 0;
+      }
+    }
   }
   return [...supported]
     .filter(([, batch]) => batch.positions.length > 0)

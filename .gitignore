@@ -7,3 +7,5 @@ coverage/
 data/raw/**
 !data/raw/.gitkeep
 data/staging/**
+__pycache__/
+*.pyc
