@@ -4,25 +4,23 @@
 
 - **Fases completadas:** 0 a 11 implementadas, auditadas y fusionadas en `main`.
 - **Nuevas directrices estratégicas:** Implementadas en [`strategy/`](strategy/README.md) y [`AGENTS.md`](AGENTS.md) (modelos GLB CC0/CC-BY, Catastro de España para 12.000 portales, oficios cacereños, minimapa táctico de radar y audio procedural Web Audio).
-- **City kit integrado:** El primer kit GLB procedural (edificios/props) está activo por defecto en `main` y se puede comparar con `?citykit=0`. Falta la revisión visual humana de escala/orientación.
+- **City kit integrado y edificios diferenciados:** `tools/generate_citykit.py` genera ahora 44 GLB CC0 en Blender 5.2 (1 primitiva y atlas embebido `kit_atlas` por modelo; mobiliario urbano + 17 módulos arquitectónicos con LOD0/LOD1). Los edificios de Cáceres se diferencian en 12 arquetipos (`building-styles.ts`), atlas de fachadas 8×8 (`building-materials.ts`), aleros, zócalos, petos de azotea y detección de medianeras (`building-details.ts`), con conmutación de LOD de detalles en `ChunkManager.setLod()`. Comparativa con `?citykit=0` conservada.
 - **Personaje y coche sustituidos:** Los GLB de Tevy e Innerscene se han retirado y reemplazado por derivados CC0 de Kenney (`caceres-pedestrian.glb` y `caceres-sedan.glb`), con licencias registradas y fallback procedural intacto. Falta la revisión visual en navegador.
 - **Próxima fase:** Fase 12 — Combate ligero estilizado e inicio de los oficios urbanos (Línea 1/8 autobús, paquetería en Judería), después de validar visualmente esta tanda de assets.
 - **Despliegue corregido:** `format:check` volvió a pasar en GitHub Actions tras formatear `src/world/city-kit.ts`; el flujo de Pages ya puede publicar el build del city kit.
 
-## City Kit GLB procedural (rama `feat/assets-citykit`)
+## City Kit GLB procedural y diferenciación de edificios
 
 ### Hecho
-- `tools/generate_citykit.py` genera 14 GLB CC0 propios (farola, árbol, semáforo, señales, chimenea y balcón; LOD0/LOD1) en `public/models/citykit/` (~159 KB en total). Se ejecuta con Blender 5.2 en modo headless.
-- `src/world/city-kit.ts` precarga los GLB con `AssetManager`, los convierte a mallas instanciadas y sustituye el mobiliario de `RoadRenderer` por defecto. Añade chimeneas en `roofAnchors` y balcones en `signSlots`, siempre anclados a datos OSM ya presentes.
-- Si falla algún GLB, se mantiene el mobiliario procedural anterior. `?citykit=0` fuerza ese mobiliario baseline para comparar.
-- Inventario y licencias en `ASSETS_LICENSES.md`; pendientes en `ASSETS_NEEDED.md`; decisión registrada en `DECISIONS.md` y `ATTRIBUTION.md`.
-- Validación local: `lint`, `typecheck`, `test` (53/53) y `build` en verde. Los 15 archivos del kit se copian a `dist/models/citykit`.
+- `tools/generate_citykit.py` genera 44 GLB CC0 propios en Blender 5.2 headless (farola, encina, semáforo, señales, chimenea, balcones histórico y moderno, ventanas de casco/ensanche/modernas, portales de dovelas/modernos, escaparates con toldo, portones industriales, sillares esquinales, buhardillas, casetas de ascensor, climatizadores HVAC, espadañas, matacanes de torres y escudos nobiliarios; LOD0/LOD1 de cada uno).
+- `src/world/building-styles.ts`, `building-materials.ts`, `building-builder.ts` y `building-details.ts` clasifican los 7.148 edificios OSM en 12 arquetipos reales (casco palaciego/encalado/ocre/terracota, ensanche ladrillo/estuco/moderno, periferia chalets/bloques/naves industriales/cívicos), pintan 4 bandas arquitectónicas en atlas 1024×1024 con mapa emisivo nocturno, añaden zócalos, aleros inclinados de teja y petos en azoteas planas, y suprimen vanos en medianeras contiguas.
+- `src/world/city-kit.ts` y `src/world/chunk-manager.ts` comparten el material `kit_atlas` entre todos los GLB e instancian los detalles arquitectónicos separados por LOD0/LOD1 (`setLod()`).
+- Inventario y licencias actualizados en `ASSETS_LICENSES.md`, `ATTRIBUTION.md`, `ASSETS_NEEDED.md` y `DECISIONS.md`.
+- Medición Playwright (14–15 chunks): Plaza Mayor 112 draw calls / 375.151 triángulos / 90,0 MiB; Cánovas 106 / 272.003; Santa María 113 / 390.212 (muy por debajo de los límites de 300 draw calls y 600.000 triángulos; cero errores de consola).
 
 ### Pendiente
-- Revisión visual humana de escala/orientación de farolas, árboles, chimeneas y balcones.
-- Sustituir los GLB CC0 de caminante y sedán por modelos nuevos (tanda de personajes y coches).
-- Reconstruir el mobiliario al cambiar de LOD dentro de un chunk ya cargado (ahora se elige el LOD al crear el chunk).
-- No fusionar en `main` hasta completar la comparación y la documentación.
+- Revisión visual humana de los 12 arquetipos, toldos, espadañas y matacanes en recorrido completo.
+- Valorar variantes adicionales de vehículos CC0 (autobús urbano, taxi, patrulla).
 
 ### Cómo probar
 - `npm run dev` y abrir `http://localhost:5173/?debug=1` para la versión con GLB (activa por defecto).

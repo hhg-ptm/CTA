@@ -11,10 +11,14 @@ Este archivo es el inventario canónico de modelos 3D. Los datos geográficos y 
 | City Kit — semáforo | `public/models/citykit/traffic-signals-lod{0,1}.glb` | CC0-1.0 | Ídem | Sustituye el semáforo procedural con el kit activo (por defecto). |
 | City Kit — señal de stop | `public/models/citykit/stop-sign-lod{0,1}.glb` | CC0-1.0 | Ídem | Sustituye la señal procedural con el kit activo (por defecto). |
 | City Kit — señal de ceda el paso | `public/models/citykit/give-way-sign-lod{0,1}.glb` | CC0-1.0 | Ídem | Sustituye la señal procedural con el kit activo (por defecto). |
-| City Kit — chimenea de ladrillo | `public/models/citykit/chimney-lod{0,1}.glb` | CC0-1.0 | Ídem | Detalle en `BuildingRoofAnchor` del casco histórico. |
-| City Kit — balcón de forja | `public/models/citykit/balcony-lod{0,1}.glb` | CC0-1.0 | Ídem | Detalle en `BuildingSignSlot` de fachadas comerciales. |
+| City Kit — chimenea de ladrillo | `public/models/citykit/chimney-lod{0,1}.glb` | CC0-1.0 | Ídem | Detalle en tejados de teja inclinados (`dormer-roof` y `chimney`). |
+| City Kit — balcón de forja | `public/models/citykit/balcony-lod{0,1}.glb` | CC0-1.0 | Ídem | Balcones con ménsulas, puerta francesa y reja para el casco histórico y Torre de Bujaco. |
+| City Kit — balcón de ensanche | `public/models/citykit/balcony-modern-lod{0,1}.glb` | CC0-1.0 | Ídem | Balcón en voladizo con antepecho de hormigón/aluminio para bloques de ensanche y periferia. |
+| City Kit — ventanas por zona | `public/models/citykit/window-{casco,ensanche,modern}-lod{0,1}.glb` | CC0-1.0 | Ídem | Ventanas 3D diferenciadas: contraventanas de madera, cajas de persiana y viseras modernas. |
+| City Kit — portales y escaparates | `public/models/citykit/{portal-casco,portal-modern,shopfront-awning,industrial-door}-lod{0,1}.glb` | CC0-1.0 | Ídem | Portadas de dovelas, portales acristalados, locales con toldo a rayas y portones industriales. |
+| City Kit — esquineros y cubiertas | `public/models/citykit/{pilaster-corner,rooftop-penthouse,rooftop-hvac,dormer-roof,bell-gable,corner-turret,heraldic-crest}-lod{0,1}.glb` | CC0-1.0 | Ídem | Sillares esquinales, casetas de ascensor, climatizadores, buhardillas, espadañas, matacanes y escudos. |
 
-Todos los GLB del kit tienen recursos embebidos, sin texturas externas, sin marcas y sin referencias a juegos comerciales. El manifest con recuento de triángulos y bytes está en `public/models/citykit/manifest.json`.
+Todos los GLB del kit comparten un atlas procedural embebido (`kit_atlas`, 1 primitiva por modelo), sin texturas externas, sin marcas y sin referencias a juegos comerciales. El manifest con recuento de triángulos y bytes está en `public/models/citykit/manifest.json`.
 
 Para regenerarlos (requiere Blender 5.x instalado):
 

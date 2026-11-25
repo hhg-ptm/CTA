@@ -6,7 +6,7 @@ Prioridad actual: sustituir los GLB CC0 genéricos ya integrados por modelos má
 | --- | --- | --- | --- | --- |
 | 1 | Peatón con ropa contemporánea española, rig y animaciones `idle`/`walk` | Sustituido: Kenney CC0 convertido a `caceres-pedestrian.glb` | Sin marcas; licencia registrada en `ATTRIBUTION.md` | `public/models/characters/` + `src/world/character.ts`, `src/world/npc-system.ts` |
 | 2 | Coche urbano genérico sin marca con ruedas separadas y LOD | Sustituido: Kenney CC0 `caceres-sedan.glb` + ruedas procedurales | Sin libreas policiales/reales; licencia registrada en `ATTRIBUTION.md` | `public/models/vehicles/` + `src/world/vehicle.ts` |
-| 3 | Variantes de fachada para casco/ensanche/periferia con huecos y balcones | Ampliación de `tools/generate_citykit.py` | Ancladas solo a huellas OSM; sin geografía inventada | `public/models/citykit/` + `src/world/city-kit.ts` |
+| 3 | Variantes de fachada para casco/ensanche/periferia con huecos y balcones | Completado (tanda 1): 17 módulos arquitectónicos Blender CC0 (`LOD0/LOD1`) integrados | Ancladas solo a huellas OSM exteriores evitando medianeras; sin geografía inventada | `public/models/citykit/` + `src/world/city-kit.ts`, `building-details.ts`, `building-styles.ts` |
 | 4 | Props adicionales: bancos, papeleras, bolardos, contenedores | Ampliación de `tools/generate_citykit.py` | Anclados a nodos/propiedades OSM ya existentes | `public/models/citykit/` + `src/world/city-kit.ts` |
 | 5 | Hitos de Cáceres (Torre de Bujaco, Arco de la Estrella…) | Requiere referencias verificables | No modelar de memoria; registrar fuente y licencia | `public/models/landmarks/` + catálogo de hitos |
 

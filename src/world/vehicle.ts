@@ -14,7 +14,7 @@ export class Vehicle {
   readonly chassisBody: RAPIER.RigidBody;
   readonly controller: RAPIER.DynamicRayCastVehicleController;
   readonly color: number;
-  private readonly wheels: THREE.Mesh[] = [];
+  private readonly wheels: THREE.Object3D[] = [];
   private readonly brakeLightMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly proceduralParts: THREE.Object3D[] = [];
   private readonly world: World;
@@ -252,39 +252,21 @@ export class Vehicle {
       roughness: 0.25,
       metalness: 0.85,
     });
-    const discGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.252, 8);
-    discGeo.rotateZ(Math.PI / 2);
-    const discMat = new THREE.MeshStandardMaterial({ color: 0x2a2b2d, roughness: 0.65 });
-    const hubGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.264, 8);
-    hubGeo.rotateZ(Math.PI / 2);
-    const spokeGeo = new THREE.BoxGeometry(0.02, 0.23, 0.028);
 
-    // The CC0 sedan replaces the body details; wheels stay visible and animated.
+    // The GLB replaces these simple wheels; the pivots stay so steering,
+    // rolling and suspension travel keep working with the same Rapier data.
     this.proceduralParts.push(...this.group.children);
     for (const wp of wheelPositions) {
-      const w = new THREE.Mesh(wheelGeo, wheelMat);
-      w.position.set(wp.x, 0.0, wp.z);
-      this.group.add(w);
-      this.wheels.push(w);
-
+      const pivot = new THREE.Group();
+      pivot.position.set(wp.x, 0.0, wp.z);
+      const tyre = new THREE.Mesh(wheelGeo, wheelMat);
+      tyre.castShadow = true;
+      pivot.add(tyre);
       const rim = new THREE.Mesh(rimGeo, rimMat);
       rim.position.x = 0.01;
-      w.add(rim);
-
-      const disc = new THREE.Mesh(discGeo, discMat);
-      disc.position.x = 0.005;
-      w.add(disc);
-
-      const hub = new THREE.Mesh(hubGeo, rimMat);
-      hub.position.x = 0.015;
-      w.add(hub);
-
-      for (let s = 0; s < 5; s += 1) {
-        const spoke = new THREE.Mesh(spokeGeo, rimMat);
-        spoke.rotation.x = (s * Math.PI * 2) / 5;
-        spoke.position.x = 0.015;
-        w.add(spoke);
-      }
+      pivot.add(rim);
+      this.group.add(pivot);
+      this.wheels.push(pivot);
     }
   }
 

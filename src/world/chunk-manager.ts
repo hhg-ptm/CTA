@@ -32,6 +32,7 @@ interface ChunkRecord {
   result?: BuiltTerrainChunk;
   meshes?: THREE.Mesh[];
   buildingMeshes?: THREE.Mesh[][];
+  buildingDetailMeshes?: THREE.Mesh[][];
   decorationMeshes?: THREE.Mesh[];
   landmarkObjects?: THREE.Object3D[];
   storks?: THREE.Group[];
@@ -147,9 +148,13 @@ function createBrandSign(slot: {
     transparent: true,
     side: THREE.DoubleSide,
   });
-  const geometry = new THREE.PlaneGeometry(Math.max(1.2, slot.width), 0.6);
+  const geometry = new THREE.PlaneGeometry(Math.max(1.2, slot.width), 0.55);
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(slot.position[0], slot.position[1], slot.position[2]);
+  mesh.position.set(
+    slot.position[0] + Math.sin(slot.heading) * 0.24,
+    slot.position[1],
+    slot.position[2] + Math.cos(slot.heading) * 0.24,
+  );
   mesh.rotation.y = slot.heading;
   mesh.castShadow = false;
   mesh.receiveShadow = false;
@@ -479,6 +484,10 @@ export class ChunkManager {
       mesh.visible = false;
       this.scene.remove(mesh);
     }
+    for (const mesh of record.buildingDetailMeshes?.[record.lod] ?? []) {
+      mesh.visible = false;
+      this.scene.remove(mesh);
+    }
     record.lod = lod;
     const next = record.meshes?.[lod];
     if (next) {
@@ -486,6 +495,10 @@ export class ChunkManager {
       this.scene.add(next);
     }
     for (const mesh of record.buildingMeshes?.[lod] ?? []) {
+      mesh.visible = true;
+      this.scene.add(mesh);
+    }
+    for (const mesh of record.buildingDetailMeshes?.[lod] ?? []) {
       mesh.visible = true;
       this.scene.add(mesh);
     }
@@ -528,15 +541,17 @@ export class ChunkManager {
       if (kitActive && this.cityKit) {
         decorationMeshes.push(
           ...this.cityKit.createRoadPropMeshes(item.result.roads, centerX, centerZ, record.lod),
-          ...this.cityKit.createBuildingDetailMeshes(
-            item.result.buildings,
-            centerX,
-            centerZ,
-            record.lod,
-          ),
         );
       }
       for (const mesh of decorationMeshes) this.scene.add(mesh);
+      const buildingDetailMeshes =
+        kitActive && this.cityKit
+          ? this.cityKit.createBuildingDetailMeshesByLod(item.result.buildings, centerX, centerZ)
+          : [[], [], []];
+      for (const mesh of buildingDetailMeshes[record.lod] ?? []) {
+        mesh.visible = true;
+        this.scene.add(mesh);
+      }
       const buildingMeshes = this.buildingRenderer.createMeshes(
         item.result.buildings,
         centerX,
@@ -551,6 +566,7 @@ export class ChunkManager {
         this.roadHeights.set(item.id, new RoadHeightIndex(item.result.roads, record.entry.bounds));
       record.meshes = meshes;
       record.buildingMeshes = buildingMeshes;
+      record.buildingDetailMeshes = buildingDetailMeshes;
       record.decorationMeshes = decorationMeshes;
       record.storks = (item.result.buildings?.storks ?? []).map((instance) => {
         const stork = createStork();
@@ -777,6 +793,14 @@ export class ChunkManager {
         for (const mesh of level) {
           this.scene.remove(mesh);
           mesh.geometry.dispose();
+        }
+      }
+    }
+    if (record.buildingDetailMeshes) {
+      for (const level of record.buildingDetailMeshes) {
+        for (const mesh of level) {
+          this.scene.remove(mesh);
+          if (mesh.geometry.userData.sharedGeometry !== true) mesh.geometry.dispose();
         }
       }
     }

@@ -68,6 +68,11 @@ function transferables(result: BuiltTerrainChunk): Transferable[] {
             surface.indices.buffer,
           ]),
         ),
+        ...(buildings.detailBatches ?? []).flatMap((batch) => [
+          batch.positions.buffer,
+          batch.headings.buffer,
+          batch.scales.buffer,
+        ]),
         buildings.colliderPositions.buffer,
         buildings.colliderIndices.buffer,
       ]

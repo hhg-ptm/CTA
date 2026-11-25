@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
-import type { BuiltBuildingChunk, BuiltRoadChunk, RoadPropBatch } from './types';
+import type {
+  BuildingDetailKind,
+  BuiltBuildingChunk,
+  BuiltRoadChunk,
+  RoadPropBatch,
+} from './types';
 
 type LoadModel = (url: string, priority?: number) => Promise<GLTF>;
 
@@ -32,19 +37,54 @@ const ROAD_KIT_NAMES: Record<RoadPropBatch['kind'], string> = {
   give_way: 'give-way-sign',
 };
 
-const KIT_NAMES = [...Object.values(ROAD_KIT_NAMES), 'chimney', 'balcony'] as const;
+const BUILDING_KIT_NAMES: Record<BuildingDetailKind, string> = {
+  balcony: 'balcony',
+  balcony_modern: 'balcony-modern',
+  window_casco: 'window-casco',
+  window_ensanche: 'window-ensanche',
+  window_modern: 'window-modern',
+  portal_casco: 'portal-casco',
+  portal_modern: 'portal-modern',
+  shopfront_awning: 'shopfront-awning',
+  industrial_door: 'industrial-door',
+  pilaster_corner: 'pilaster-corner',
+  chimney: 'chimney',
+  dormer_roof: 'dormer-roof',
+  rooftop_penthouse: 'rooftop-penthouse',
+  rooftop_hvac: 'rooftop-hvac',
+  bell_gable: 'bell-gable',
+  corner_turret: 'corner-turret',
+  heraldic_crest: 'heraldic-crest',
+};
 
-function partsFromGltf(gltf: GLTF): KitPart[] {
+const KIT_NAMES = [...Object.values(ROAD_KIT_NAMES), ...Object.values(BUILDING_KIT_NAMES)] as const;
+
+function partsFromGltf(gltf: GLTF, sharedMaterials: Map<string, THREE.Material>): KitPart[] {
   gltf.scene.updateMatrixWorld(true);
   const parts: KitPart[] = [];
   gltf.scene.traverse((node) => {
     if (!(node instanceof THREE.Mesh)) return;
     const source = Array.isArray(node.material) ? node.material[0] : node.material;
     if (!source) return;
+    let material = source;
+    if (source.name.startsWith('kit_atlas')) {
+      const existing = sharedMaterials.get('kit_atlas');
+      if (existing) {
+        material = existing;
+      } else {
+        if (source instanceof THREE.MeshStandardMaterial && source.map) {
+          source.map.magFilter = THREE.NearestFilter;
+          source.map.minFilter = THREE.LinearFilter;
+          source.map.generateMipmaps = false;
+          source.map.needsUpdate = true;
+        }
+        sharedMaterials.set('kit_atlas', source);
+      }
+    }
     const geometry = node.geometry.clone();
     geometry.applyMatrix4(node.matrixWorld);
     geometry.userData.sharedGeometry = true;
-    parts.push({ geometry, material: source });
+    parts.push({ geometry, material });
   });
   return parts;
 }
@@ -93,10 +133,11 @@ function instanceParts(
   return meshes;
 }
 
-/** GLB-based street furniture and building details for the optional city kit. */
+/** GLB-based street furniture and architectural building details for the Cáceres city kit. */
 export class CityKit {
   private readonly baseUrl: URL;
   private readonly models = new Map<string, KitModel>();
+  private readonly sharedMaterials = new Map<string, THREE.Material>();
   private ready = false;
 
   constructor(worldBaseUrl: URL) {
@@ -111,13 +152,14 @@ export class CityKit {
     const lod0Parts = new Map<string, KitPart[]>();
     const lod1Parts = new Map<string, KitPart[]>();
     const requests: Promise<void>[] = [];
+    this.sharedMaterials.clear();
     for (const name of KIT_NAMES) {
       requests.push(
         load(this.url(name, 0), 20).then((gltf) => {
-          lod0Parts.set(name, partsFromGltf(gltf));
+          lod0Parts.set(name, partsFromGltf(gltf, this.sharedMaterials));
         }),
         load(this.url(name, 1), 20).then((gltf) => {
-          lod1Parts.set(name, partsFromGltf(gltf));
+          lod1Parts.set(name, partsFromGltf(gltf, this.sharedMaterials));
         }),
       );
     }
@@ -153,13 +195,78 @@ export class CityKit {
     return meshes;
   }
 
+  createBuildingDetailMeshesByLod(
+    buildings: BuiltBuildingChunk | undefined,
+    centerX: number,
+    centerZ: number,
+  ): THREE.Mesh[][] {
+    if (!this.ready || !buildings) return [[], [], []];
+    if (!buildings.detailBatches || buildings.detailBatches.length === 0) {
+      return [
+        this.createLegacyDetailMeshes(buildings, centerX, centerZ, 0),
+        this.createLegacyDetailMeshes(buildings, centerX, centerZ, 1),
+        [],
+      ];
+    }
+    const lod0Meshes: THREE.Mesh[] = [];
+    const lod1Meshes: THREE.Mesh[] = [];
+    for (const batch of buildings.detailBatches) {
+      const name = BUILDING_KIT_NAMES[batch.kind];
+      const model = this.models.get(name);
+      if (!model) continue;
+      const count = Math.min(
+        batch.positions.length / 3,
+        batch.headings.length,
+        batch.scales.length,
+      );
+      if (count === 0) continue;
+      const placements: Placement[] = [];
+      for (let i = 0; i < count; i += 1) {
+        const offset = i * 3;
+        placements.push({
+          x: batch.positions[offset] ?? 0,
+          y: batch.positions[offset + 1] ?? 0,
+          z: batch.positions[offset + 2] ?? 0,
+          heading: batch.headings[i] ?? 0,
+          scale: batch.scales[i] ?? 1,
+        });
+      }
+      lod0Meshes.push(...instanceParts(model.lod0, placements, centerX, centerZ, false));
+      if (batch.maxLod >= 1) {
+        lod1Meshes.push(...instanceParts(model.lod1, placements, centerX, centerZ, false));
+      }
+    }
+    return [lod0Meshes, lod1Meshes, []];
+  }
+
   createBuildingDetailMeshes(
     buildings: BuiltBuildingChunk | undefined,
     centerX: number,
     centerZ: number,
     lod: number,
   ): THREE.Mesh[] {
-    if (!this.ready || !buildings || lod === 2) return [];
+    return this.createBuildingDetailMeshesByLod(buildings, centerX, centerZ)[lod] ?? [];
+  }
+
+  dispose(): void {
+    for (const model of this.models.values()) {
+      for (const part of [...model.lod0, ...model.lod1]) part.geometry.dispose();
+    }
+    for (const mat of this.sharedMaterials.values()) {
+      if (mat instanceof THREE.MeshStandardMaterial) mat.map?.dispose();
+      mat.dispose();
+    }
+    this.models.clear();
+    this.sharedMaterials.clear();
+    this.ready = false;
+  }
+
+  private createLegacyDetailMeshes(
+    buildings: BuiltBuildingChunk,
+    centerX: number,
+    centerZ: number,
+    lod: number,
+  ): THREE.Mesh[] {
     const meshes: THREE.Mesh[] = [];
     const chimneys = this.models.get('chimney');
     if (chimneys) {
@@ -191,14 +298,6 @@ export class CityKit {
       meshes.push(...instanceParts(parts, placements, centerX, centerZ, false));
     }
     return meshes;
-  }
-
-  dispose(): void {
-    for (const model of this.models.values()) {
-      for (const part of [...model.lod0, ...model.lod1]) part.geometry.dispose();
-    }
-    this.models.clear();
-    this.ready = false;
   }
 
   private url(name: string, lod: number): string {

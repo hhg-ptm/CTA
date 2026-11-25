@@ -156,12 +156,40 @@ export interface StorkInstance {
   readonly position: readonly [number, number, number];
 }
 
+export type BuildingDetailKind =
+  | 'balcony'
+  | 'balcony_modern'
+  | 'window_casco'
+  | 'window_ensanche'
+  | 'window_modern'
+  | 'portal_casco'
+  | 'portal_modern'
+  | 'shopfront_awning'
+  | 'industrial_door'
+  | 'pilaster_corner'
+  | 'chimney'
+  | 'dormer_roof'
+  | 'rooftop_penthouse'
+  | 'rooftop_hvac'
+  | 'bell_gable'
+  | 'corner_turret'
+  | 'heraldic_crest';
+
+export interface BuildingDetailBatch {
+  readonly kind: BuildingDetailKind;
+  readonly maxLod: 0 | 1;
+  readonly positions: Float32Array;
+  readonly headings: Float32Array;
+  readonly scales: Float32Array;
+}
+
 export interface BuiltBuildingChunk {
   readonly levels: readonly BuildingLodGeometry[];
   readonly colliderPositions: Float32Array;
   readonly colliderIndices: Uint32Array;
   readonly signSlots: readonly BuildingSignSlot[];
   readonly roofAnchors: readonly BuildingRoofAnchor[];
+  readonly detailBatches?: readonly BuildingDetailBatch[];
   readonly landmarkModels: readonly LandmarkModelInstance[];
   readonly storks: readonly StorkInstance[];
   readonly footprints: readonly (readonly (readonly [number, number])[])[];
