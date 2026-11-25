@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import * as RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import type { World } from '@dimforge/rapier3d-compat';
 import type { ChunkManager } from './chunk-manager';
 import { createSedanBodyGeometry, createWheelArchGeometry } from './npc-models';
@@ -348,16 +347,54 @@ export class Vehicle {
     return this.group.position;
   }
 
+  /** Move the chassis once terrain height becomes available after streaming. */
+  teleport(x: number, y: number, z: number, heading = 0): void {
+    const half = heading * 0.5;
+    const rotation = { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) };
+    this.chassisBody.setTranslation({ x, y: y + 0.82, z }, true);
+    this.chassisBody.setRotation(rotation, true);
+    this.chassisBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    this.chassisBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    this.group.position.set(x, y + 0.82, z);
+    this.group.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
+  }
+
   async loadModel(chunks: ChunkManager, url: string): Promise<void> {
     const gltf = await chunks.loadModel(url, 80);
-    const model = createMergedVehicleVisual(gltf, this.color);
-    model.name = 'Kenney CC0 sedan';
+    const source = gltf.scene.clone(true);
+    const wheelNames = ['WheelFrontLeft', 'WheelFrontRight', 'WheelRearLeft', 'WheelRearRight'];
+    const detailedWheels = wheelNames.map((name) => {
+      const wheel = source.getObjectByName(name);
+      if (!wheel) throw new Error(`The sports car model is missing ${name}.`);
+      wheel.parent?.remove(wheel);
+      return wheel;
+    });
+    const model = mergeVehicleVisual(source, -0.42);
+    model.name = 'Caceres GT';
     model.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
       object.castShadow = true;
       object.receiveShadow = true;
     });
     this.group.add(model);
+
+    // The GLB wheel nodes are centred on their axles, so reusing the existing
+    // pivots keeps Rapier steering/rolling/suspension aligned with the body.
+    for (let i = 0; i < this.wheels.length; i += 1) {
+      const pivot = this.wheels[i];
+      const wheel = detailedWheels[i];
+      if (!pivot || !wheel) throw new Error('The sports car wheel setup is incomplete.');
+      pivot.clear();
+      wheel.position.set(0, 0, 0);
+      wheel.rotation.set(0, 0, 0);
+      wheel.scale.set(1, 1, 1);
+      wheel.traverse((object) => {
+        if (!(object instanceof THREE.Mesh)) return;
+        object.castShadow = true;
+        object.receiveShadow = true;
+      });
+      pivot.add(wheel);
+    }
     for (const part of this.proceduralParts) part.visible = false;
   }
 
@@ -385,25 +422,16 @@ function taperedCabinGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-/** Merge the Kenney sedan body into one batch per material and reuse the animated wheels. */
-function createMergedVehicleVisual(gltf: GLTF, paintColor?: number): THREE.Group {
-  const source = gltf.scene.clone(true);
-  // Kenney ships four static wheels; the procedural wheels keep steering and rolling.
-  source.traverse((object) => {
-    if (object instanceof THREE.Mesh && object.name.toLowerCase().includes('wheel')) {
-      object.parent?.remove(object);
-    }
-  });
+/** Merge the GLB body into one batch per material; wheels are handled by their pivots. */
+function mergeVehicleVisual(source: THREE.Object3D, yOffset: number): THREE.Group {
   source.updateMatrixWorld(true);
   const batches = new Map<
     string,
     { material: THREE.Material; geometries: THREE.BufferGeometry[] }
   >();
   const bounds = new THREE.Box3().setFromObject(source);
-  if (bounds.isEmpty()) throw new Error('The sedan model has no renderable geometry.');
+  if (bounds.isEmpty()) throw new Error('The sports car model has no renderable geometry.');
   const center = bounds.getCenter(new THREE.Vector3());
-  // The source body is 1.5 × 1.15 × 2.55 m; this matches the 1.8 × 4.1 m chassis.
-  const scale = new THREE.Vector3(1.2, 1, 1.6);
 
   source.traverse((object) => {
     if (!(object instanceof THREE.Mesh) || object instanceof THREE.SkinnedMesh) return;
@@ -421,17 +449,13 @@ function createMergedVehicleVisual(gltf: GLTF, paintColor?: number): THREE.Group
             },
           ];
     for (const group of groups) {
-      let material = materials[group.materialIndex ?? 0];
+      const material = materials[group.materialIndex ?? 0];
       if (!material) continue;
-      if (
-        paintColor !== undefined &&
-        material instanceof THREE.MeshStandardMaterial &&
-        (material.name.toLowerCase().includes('paint') ||
-          material.name.toLowerCase().includes('body') ||
-          material.name.toLowerCase().includes('colormap'))
-      ) {
-        material = material.clone();
-        material.color.setHex(paintColor);
+      // Transmission would force Three.js to render the whole scene again; the
+      // tinted glass is already transparent through alpha.
+      if (material instanceof THREE.MeshPhysicalMaterial && material.transmission > 0) {
+        material.transmission = 0;
+        material.needsUpdate = true;
       }
       const geometry = geometryForMaterialGroup(
         sourceGeometry,
@@ -440,8 +464,10 @@ function createMergedVehicleVisual(gltf: GLTF, paintColor?: number): THREE.Group
         sourceGeometry.groups.length > 0,
       );
       geometry.applyMatrix4(object.matrixWorld);
-      geometry.translate(-center.x, -center.y + 0.35, -center.z);
-      geometry.scale(scale.x, scale.y, scale.z);
+      // Source glTF is Y-up with the wheels touching y=0 and their axles at
+      // y=0.36. Keep its own vertical scale: only lower the ground plane to
+      // the Rapier-controlled wheel pivots instead of centering the bounds.
+      geometry.translate(-center.x, yOffset, -center.z);
       const signature = Object.entries(geometry.attributes)
         .map(([name, attribute]) => `${name}:${attribute.itemSize}:${attribute.normalized}`)
         .sort()
@@ -464,7 +490,7 @@ function createMergedVehicleVisual(gltf: GLTF, paintColor?: number): THREE.Group
     result.add(new THREE.Mesh(geometry, batch.material));
   }
   if (result.children.length === 0)
-    throw new Error('The sedan model could not be combined into renderable meshes.');
+    throw new Error('The sports car model could not be combined into renderable meshes.');
   return result;
 }
 

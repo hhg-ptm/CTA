@@ -190,7 +190,7 @@ function modelUrl(path: string): string {
 function loadVehicleVisual(vehicle: Vehicle): void {
   if (!chunks) return;
   void vehicle
-    .loadModel(chunks, modelUrl('models/vehicles/caceres-sedan.glb'))
+    .loadModel(chunks, modelUrl('models/vehicles/caceres-gt.glb'))
     .catch((error: unknown) => {
       logger.warn('Detailed vehicle model failed to load; keeping the built-in vehicle', {
         error: String(error),
@@ -199,6 +199,7 @@ function loadVehicleVisual(vehicle: Vehicle): void {
 }
 
 let activeVehicle: Vehicle | null = null;
+let initialVehiclePlaced = false;
 let inVehicle = false;
 let spacePressed = false;
 let hornPressed = false;
@@ -576,6 +577,16 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
   systemStart = debugMode ? performance.now() : 0;
   chunks?.update(camera, timestamp);
   if (debugMode) streamingUpdateMs = performance.now() - systemStart;
+  // The initial vehicle is created before chunk heights exist; place it as soon
+  // as streaming publishes the spawn height so it cannot fall through the map.
+  const initialVehicle = vehicles[0];
+  if (!initialVehiclePlaced && initialVehicle && chunks) {
+    const ground = chunks.groundHeightAt(8, 8);
+    if (ground !== undefined) {
+      initialVehicle.teleport(8, ground, 8, 0);
+      initialVehiclePlaced = true;
+    }
+  }
   systemStart = debugMode ? performance.now() : 0;
   renderer.render(scene, camera);
   if (debugMode) renderUpdateMs = performance.now() - systemStart;

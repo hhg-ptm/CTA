@@ -1,0 +1,392 @@
+{
+  "schemaVersion": 1,
+  "project": "Cáceres Criminal (CTA)",
+  "phase": "FASE 1 - Base de datos y arquitectura",
+  "generatedAt": "2026-11-25",
+  "region": "cc-monumental",
+  "crs": {
+    "code": "EPSG:25829",
+    "name": "ETRS89 / UTM zone 29N",
+    "origin": {
+      "lat": 39.474414,
+      "lon": -6.371556,
+      "easting": 726089.2276890515,
+      "northing": 4372723.106076299,
+      "reference": "Plaza Mayor de Cáceres"
+    },
+    "extentMeters": 7600,
+    "halfExtentMeters": 3800,
+    "chunkMeters": 256,
+    "chunkGrid": {
+      "cols": 30,
+      "rows": 30,
+      "totalChunks": 900,
+      "minChunkId": "-15_-15",
+      "maxChunkId": "14_14"
+    },
+    "wgs84Bounds": {
+      "south": 39.43920423514331,
+      "west": -6.416956535527416,
+      "north": 39.509609212578475,
+      "east": -6.326112327621011
+    }
+  },
+  "safetyPolicy": {
+    "productionWorldDir": "public/world/cc-monumental/",
+    "productionWorldStatus": "preserved_untouched",
+    "stagingDir": "data/staging/cc-monumental/",
+    "stagingGitignored": true,
+    "cadastralPrivacyRule": "Raw cadastral reference IDs (referencia catastral / rc1 / rc2) are stripped in tools/caceres_geo_processing.py and never stored in JSON outputs or committed to Git."
+  },
+  "sources": {
+    "osmExpanded": {
+      "provider": "OpenStreetMap / Overpass API",
+      "url": "https://overpass-api.de/api/interpreter",
+      "license": "ODbL 1.0",
+      "licenseUrl": "https://www.openstreetmap.org/copyright",
+      "attribution": "© OpenStreetMap contributors",
+      "retrievedAt": "2026-11-25T00:57:07.796Z",
+      "extentMeters": 7600,
+      "localFile": "data/raw/osm/cc-monumental-expanded.json",
+      "bytes": 17868027,
+      "sha256": "1479b1f4a6fea87c2cb186850e5a34fbb1c37adb3df3e344ef2613a41a5a1c36",
+      "metadataFile": "data/raw/osm/cc-monumental-expanded.meta.json",
+      "metadataBytes": 494,
+      "metadataSha256": "d86ab16cfd975e1a2808a118e279758754676491b8869e8dd4763301b8beea1c",
+      "elementCount": 30337
+    },
+    "osmBaselineProduction": {
+      "description": "Snapshot currently baked into public/world/cc-monumental/",
+      "retrievedAt": "2026-11-23T11:26:56Z",
+      "bytes": 13154435,
+      "sha256": "86835db8ad1fe1d0caa3f70c8bec6f8c55e6b48bbd844b923cb45042077a2cbb",
+      "legacy1kmRawFile": "data/raw/osm/cc-monumental.json",
+      "legacy1kmBytes": 2291371,
+      "legacy1kmSha256": "61c1f1f3829d84b89d63171c97244b048843177ff0a3300f8ff139b02612ecfd"
+    },
+    "catastroAtomBuildings": {
+      "provider": "Dirección General del Catastro (INSPIRE ATOM BU)",
+      "municipalityCode": "10900",
+      "municipalityName": "Cáceres",
+      "url": "https://www.catastro.hacienda.gob.es/INSPIRE/Buildings/10/10900-CACERES/A.ES.SDGC.BU.10900.zip",
+      "license": "INSPIRE BU (ISO 19115: No conditions apply / no limitation)",
+      "licenseUrl": "https://www.catastro.hacienda.gob.es/webinspire/documentos/Licencia.pdf",
+      "metadataDate": "2026-08-21",
+      "nativeCrs": "EPSG::25829",
+      "localFile": "data/raw/catastro-atom/A.ES.SDGC.BU.10900.zip",
+      "bytes": 8459435,
+      "sha256": "5efda1000147ac279a2b17aea8b5990a96101db309ff371403ec5a0c7db88e60",
+      "zipEntries": {
+        "A.ES.SDGC.BU.10900.building.gml": { "uncompressedBytes": 64826777 },
+        "A.ES.SDGC.BU.10900.buildingpart.gml": { "uncompressedBytes": 143861218 },
+        "A.ES.SDGC.BU.10900.otherconstruction.gml": { "uncompressedBytes": 3824909 },
+        "A.ES.SDGC.BU.MD.10900.xml": { "uncompressedBytes": 20006 }
+      }
+    },
+    "catastroAtomAddresses": {
+      "provider": "Dirección General del Catastro (INSPIRE ATOM AD)",
+      "url": "https://www.catastro.hacienda.gob.es/INSPIRE/Addresses/10/10900-CACERES/A.ES.SDGC.AD.10900.zip",
+      "metadataDate": "2026-08-21",
+      "localFile": "data/raw/catastro-atom/A.ES.SDGC.AD.10900.zip",
+      "bytes": 749989,
+      "sha256": "ffd6a455834dfad6ec22e75b6eb8a3ade3f2fdd6afc6463325c3d7e13422dde4",
+      "zipEntries": {
+        "A.ES.SDGC.AD.10900.gml": { "uncompressedBytes": 27092840 },
+        "A.ES.SDGC.AD.MD.10900.xml": { "uncompressedBytes": 20405 }
+      }
+    },
+    "catastroAtomParcels": {
+      "provider": "Dirección General del Catastro (INSPIRE ATOM CP)",
+      "url": "https://www.catastro.hacienda.gob.es/INSPIRE/CadastralParcels/10/10900-CACERES/A.ES.SDGC.CP.10900.zip",
+      "metadataDate": "2026-08-21",
+      "localFile": "data/raw/catastro-atom/A.ES.SDGC.CP.10900.zip",
+      "bytes": 11020212,
+      "sha256": "be9fdb9add796c0ec4567aacfc20ae255824f9ff9b3a7684cb96815e69fe0676",
+      "zipEntries": {
+        "A.ES.SDGC.CP.10900.cadastralparcel.gml": { "uncompressedBytes": 62378277 },
+        "A.ES.SDGC.CP.10900.cadastralzoning.gml": { "uncompressedBytes": 8126274 },
+        "A.ES.SDGC.CP.MD..10900.xml": { "uncompressedBytes": 25493 }
+      },
+      "phase1Usage": "Archived locally for FASE 2/5 lot boundaries and urban block subdivision."
+    },
+    "terrainIGN": {
+      "provider": "IGN / CNIG PNOA MDT05 1ª cobertura via WCS 2.0.1",
+      "coverageId": "Elevacion25830_5",
+      "wcsCapabilitiesUrl": "https://servicios.idee.es/wcs-inspire/mdt?service=WCS&version=2.0.1&request=GetCapabilities",
+      "license": "CC BY 4.0 scne.es",
+      "attribution": "Obra derivada de MDT05-cob1 2008-2015 CC-BY 4.0 scne.es",
+      "productionWorldBakedGrid": {
+        "retrievedAt": "2026-11-23T11:38:22.049Z",
+        "sha256": "5aaff43b883aeac9fc3807cb80d7aa21eb18430b2fea58b516ac647cd8e88b1",
+        "cols": 1548,
+        "rows": 1512,
+        "cellWidthMeters": 5.291989664083,
+        "cellHeightMeters": 5.41798941799,
+        "minElevationMeters": 299.0220031738281,
+        "maxElevationMeters": 639,
+        "tiles": 16
+      },
+      "localRawCacheNote": "data/raw/elevation/cc-monumental.asc (293674 bytes, sha256 408000206307ec3414ea234b62fe9a6d91fe1a59a5f6e396fac18960e1ad4e86) stores the earlier 1 km extract from 2026-11-22, while the full 7.6 km MDT05 grid is already baked into the 900 chunks in public/world/cc-monumental/."
+    },
+    "unavailableAutomatedEndpoints": [
+      {
+        "url": "https://servicios.idee.es/wcs-inspire/mds",
+        "purpose": "IGN Digital Surface Model (DSM / MDS) for LiDAR crown & roof heights",
+        "status": "fetch_failed",
+        "mitigation": "Manual download of PNOA-LiDAR COG (MDS02/MDT02) from centrodedescargas.cnig.es if needed in FASE 2+; current FASE 1 relies on Catastro INSPIRE BuildingPart exact floor counts."
+      },
+      {
+        "url": "https://ide.caceres.es/geoserver/wfs",
+        "purpose": "SIG / IDE Ayuntamiento de Cáceres municipal vector layers",
+        "status": "fetch_failed",
+        "mitigation": "Documented as unreachable from automated script environment (also timed out on http://ide.caceres.es/ and https://sig.caceres.es/)."
+      }
+    ]
+  },
+  "baselineProductionMetrics": {
+    "source": "public/world/cc-monumental/manifest.json",
+    "chunks": 900,
+    "roads": 7894,
+    "buildingsTotal": 7152,
+    "buildingsInWorld": 7148,
+    "buildingsInWorldByZone": {
+      "casco": 465,
+      "ensanche": 1904,
+      "periferia": 4779
+    },
+    "surfaces": 2892,
+    "propsTotal": 10859,
+    "propsBreakdown": {
+      "tree": 7313,
+      "crossing": 2885,
+      "give_way": 415,
+      "traffic_signals": 123,
+      "stop": 78,
+      "bench": 17,
+      "waste_basket": 9,
+      "traffic_sign": 5
+    },
+    "pois": 2280,
+    "verifiedHeightBuildingsBeforePhase1": {
+      "osmExplicitFloors": 55,
+      "osmExplicitHeightMeters": 1,
+      "totalVerified": 56,
+      "coveragePercent": 0.78
+    }
+  },
+  "phase1CrossMatchMetrics": {
+    "source": "data/staging/cc-monumental/phase1_stats.json",
+    "pipelineScript": "tools/caceres_geo_processing.py",
+    "stagingOutput": "data/staging/cc-monumental/building_enrichment.json",
+    "osmBuildingsInWorld": 7249,
+    "osmRelationBuildings": 106,
+    "osmCourtyardsInRelations": 102,
+    "osmBuildingPartWays": 16,
+    "catastroAtomStats": {
+      "buildingsMunicipality": 13631,
+      "buildingsIn7600m": 11068,
+      "buildingsWithPartFloorsIn7600m": 11068,
+      "buildingsWithCourtyardsIn7600m": 620,
+      "partsMunicipality": 57659,
+      "partsIn7600m": 48805,
+      "portalsMunicipality": 18550,
+      "portalsIn7600m": 16689,
+      "topMaxFloorDistributionIn7600m": {
+        "2": 4954,
+        "3": 2180,
+        "1": 2058,
+        "4": 722,
+        "5": 321,
+        "6": 201,
+        "7": 201,
+        "8": 151,
+        "9": 125,
+        "10": 48,
+        "11": 40,
+        "0": 37
+      }
+    },
+    "heightProvenance": {
+      "osm_explicit": 60,
+      "catastro_floors": 6124,
+      "realVerifiedTotal": 6184,
+      "realVerifiedPercent": 85.31,
+      "catastro_footprint_matched": 6179,
+      "overlapBothOsmAndCatastro": 39,
+      "heuristic_fallback": 1065,
+      "heuristicFallbackBreakdown": {
+        "unmatchedNoCatastroMatch": 1049,
+        "matchedCatastroZeroFloors": 16,
+        "unmatchedTopOsmTypes": {
+          "yes": 669,
+          "industrial": 88,
+          "terrace": 85,
+          "roof": 78,
+          "residential": 53,
+          "school": 20,
+          "apartments": 12,
+          "farm_auxiliary": 11,
+          "university": 9,
+          "ruins": 7,
+          "public": 7,
+          "commercial": 6
+        }
+      },
+      "maxObservedFloors": {
+        "catastro": 16,
+        "osm": 11
+      }
+    },
+    "catastroUsesMatched": {
+      "1_residential": 5212,
+      "3_industrial": 344,
+      "4_3_publicServices": 284,
+      "4_2_retail": 246,
+      "4_1_office": 50,
+      "2_agriculture": 8
+    },
+    "catastroErasMatched": {
+      "modern_1985_plus": 2088,
+      "classic_1900_1950": 2017,
+      "ensanche_1950_1985": 1955,
+      "historic_pre_1900": 94
+    },
+    "architecturalEnrichmentCounts": {
+      "buildingsWithMultipleCatastroParts": 4955,
+      "buildingsWithCourtyard": 713,
+      "buildingsWithPortalsMatched": 5688
+    },
+    "osmStreetPropsAndVegetation": {
+      "tree": 7313,
+      "treeTaxonomy": {
+        "unspecified": 6250,
+        "broadleaved": 890,
+        "needleleaved": 173
+      },
+      "bus_stop": 214,
+      "bench": 17,
+      "fountain": 10,
+      "waste_basket": 9,
+      "bollard": 8,
+      "bicycle_parking": 7
+    }
+  },
+  "verifiedUrbanSectorsAndLandmarks": [
+    {
+      "name": "Casco Antiguo / Plaza Mayor",
+      "osmSampleId": "w22358108",
+      "sampleLabel": "Ayuntamiento de Cáceres",
+      "gameMeters": { "x": -34.6, "z": -6.9 },
+      "inside7600m": true
+    },
+    {
+      "name": "Centro / Paseo de Cánovas",
+      "osmSampleId": "w30824096",
+      "sampleLabel": "Paseo de Cánovas",
+      "gameMeters": { "x": -574.0, "z": -492.7 },
+      "inside7600m": true
+    },
+    {
+      "name": "San Blas",
+      "osmSampleId": "w238698337",
+      "sampleLabel": "Ermita de San Blas",
+      "gameMeters": { "x": 164.3, "z": 635.9 },
+      "inside7600m": true
+    },
+    {
+      "name": "San Marquino",
+      "osmSampleId": "n1757250456",
+      "sampleLabel": "Ermita de San Marquino",
+      "gameMeters": { "x": 499.3, "z": -147.9 },
+      "inside7600m": true
+    },
+    {
+      "name": "Plaza de Toros Era de los Mártires",
+      "osmSampleId": "w376803613",
+      "sampleLabel": "Plaza de Toros Era de los Mártires",
+      "gameMeters": { "x": -366.2, "z": 643.4 },
+      "inside7600m": true
+    },
+    {
+      "name": "Moctezuma / R-66",
+      "osmSampleId": "w596167832",
+      "sampleLabel": "Casa Municipal de cultura Moctezuma",
+      "gameMeters": { "x": -452.7, "z": -1482.2 },
+      "inside7600m": true
+    },
+    {
+      "name": "Estación de Cáceres y Autobuses",
+      "osmSampleId": "w53246385",
+      "sampleLabel": "Estación de Cáceres",
+      "gameMeters": { "x": -1171.8, "z": -1499.3 },
+      "inside7600m": true
+    },
+    {
+      "name": "Nuevo Cáceres / Espíritu Santo",
+      "osmSampleId": "w58253870",
+      "sampleLabel": "Plaza del Espíritu Santo",
+      "gameMeters": { "x": 333.9, "z": -1528.3 },
+      "inside7600m": true
+    },
+    {
+      "name": "Mejostilla y Montesol",
+      "osmSampleId": "w466170582",
+      "sampleLabel": "Centro Cívico Mejostilla",
+      "gameMeters": { "x": 510.1, "z": 1416.9 },
+      "inside7600m": true
+    },
+    {
+      "name": "Zona Comercial El Vivero",
+      "osmSampleId": "w24717473",
+      "sampleLabel": "Zona Comercial El Vivero",
+      "gameMeters": { "x": -1819.2, "z": -282.9 },
+      "inside7600m": true
+    },
+    {
+      "name": "Aldea Moret",
+      "osmSampleId": "n7972975663",
+      "sampleLabel": "A. Moret (cruce c/ Danubio)",
+      "gameMeters": { "x": -1491.0, "z": -2543.1 },
+      "inside7600m": true,
+      "note": "Covered inside southern chunks; sparse OSM suburb boundary tagging, enriched via Catastro BU."
+    },
+    {
+      "name": "Polígono Industrial Charca Musia",
+      "osmSampleId": "n7972975682",
+      "sampleLabel": "Polígono Charca Musia",
+      "gameMeters": { "x": 537.8, "z": -2332.2 },
+      "inside7600m": true
+    },
+    {
+      "name": "Polígono Industrial Las Capellanías y Estadio Príncipe Felipe",
+      "osmSampleId": "w257266364",
+      "sampleLabel": "Estadio Príncipe Felipe",
+      "gameMeters": { "x": -3556.7, "z": 1305.3 },
+      "inside7600m": true,
+      "note": "Westernmost industrial fringe (c/ Molineros bus stop) reaches x = -3868.0 m, 68 m beyond the -3800 m chunk boundary."
+    },
+    {
+      "name": "Campus Universitario UEx",
+      "osmSampleId": "w377649521",
+      "sampleLabel": "Campus Cáceres Universidad de Extremadura",
+      "gameMeters": { "x": 2453.7, "z": 690.7 },
+      "inside7600m": true
+    },
+    {
+      "name": "Hospital Universitario de Cáceres",
+      "osmSampleId": "w389025250",
+      "sampleLabel": "Ciudad de la Salud y la Innovación",
+      "gameMeters": { "x": 3549.7, "z": 196.9 },
+      "inside7600m": true
+    }
+  ],
+  "existingAssetsSummary": {
+    "cityKitManifest": "public/models/citykit/manifest.json",
+    "cityKitGlbCount": 44,
+    "cityKitModulesCount": 22,
+    "cityKitBuildingModulesCount": 17,
+    "cityKitRoadModulesCount": 5,
+    "cityKitTotalBytesOnDisk": 1215895,
+    "heroLandmarkGlbCount": 0
+  }
+}
