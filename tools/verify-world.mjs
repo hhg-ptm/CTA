@@ -47,6 +47,8 @@ let totalFeatures = 0;
 let totalMissingHeights = 0;
 const buildingsById = new Map();
 
+const allowRelationBuildings = manifest.buildingPipeline === 'blender-library';
+
 for (const chunk of manifest.chunks) {
   if (!/^(-?\d+)_(-?\d+)\.bin$/.test(chunk.path) || chunk.bytes > 16 * 1024 * 1024)
     throw new Error(`Unsafe chunk metadata: ${chunk.id}`);
@@ -67,11 +69,10 @@ for (const chunk of manifest.chunks) {
     throw new Error(`No-data terrain sample found: ${chunk.path}`);
   for (const feature of payload.features) {
     if (feature.featureType !== 'building') continue;
-    if (
-      !/^w\d+$/.test(feature.id ?? '') ||
-      !Array.isArray(feature.points) ||
-      feature.points.length < 4
-    )
+    const validBuildingId = allowRelationBuildings
+      ? /^(w|r)\d+$/.test(feature.id ?? '')
+      : /^w\d+$/.test(feature.id ?? '');
+    if (!validBuildingId || !Array.isArray(feature.points) || feature.points.length < 4)
       throw new Error(`Building lacks a stable OSM id or closed footprint in ${chunk.path}.`);
     const sourceMargin = 200;
     if (

@@ -7,13 +7,14 @@ import { Logger } from './engine/logger';
 import { QUALITY_PRESETS } from './engine/quality';
 import { t } from './i18n';
 import { AgentColliders } from './world/agent-colliders';
-import { ChunkManager } from './world/chunk-manager';
+import { SHADOW_PROXY_LAYER } from './world/blender-building-renderer';
+import { ChunkManager, type BlenderShadowStats } from './world/chunk-manager';
 import { Character } from './world/character';
 import { CrimeSystem } from './world/crime-system';
 import { NpcSystem } from './world/npc-system';
 import { PoliceSystem } from './world/police-system';
 import { RoadGraph } from './world/road-graph';
-import type { RoadNetwork } from './world/types';
+import type { RoadNetwork, ShadowLodProfile } from './world/types';
 import { Vehicle } from './world/vehicle';
 import { createPhysicsWorld } from './world/terrain-physics';
 import type { World } from '@dimforge/rapier3d-compat';
@@ -68,6 +69,87 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.14;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;
+
+interface DisjointTimerQueryExt {
+  readonly TIME_ELAPSED_EXT: number;
+  readonly GPU_DISJOINT_EXT: number;
+}
+interface PendingGpuQuery {
+  readonly kind: 'shadow' | 'main';
+  readonly query: WebGLQuery;
+}
+
+const rawGl = renderer.getContext();
+const gl2 =
+  typeof WebGL2RenderingContext !== 'undefined' && rawGl instanceof WebGL2RenderingContext
+    ? rawGl
+    : null;
+const timerExt = gl2
+  ? (gl2.getExtension('EXT_disjoint_timer_query_webgl2') as DisjointTimerQueryExt | null)
+  : null;
+const pendingGpuQueries: PendingGpuQuery[] = [];
+let gpuShadowMs: number | null = null;
+let gpuMainMs: number | null = null;
+
+function pollGpuQueries(): void {
+  if (!gl2 || !timerExt || pendingGpuQueries.length === 0) return;
+  const disjoint = Boolean(gl2.getParameter(timerExt.GPU_DISJOINT_EXT));
+  while (pendingGpuQueries.length > 0) {
+    const head = pendingGpuQueries[0];
+    if (!head) break;
+    const available = Boolean(gl2.getQueryParameter(head.query, gl2.QUERY_RESULT_AVAILABLE));
+    if (!available && !disjoint) break;
+    pendingGpuQueries.shift();
+    if (!disjoint && available) {
+      const ns = Number(gl2.getQueryParameter(head.query, gl2.QUERY_RESULT));
+      const ms = ns / 1_000_000;
+      if (head.kind === 'shadow') gpuShadowMs = ms;
+      else gpuMainMs = ms;
+    }
+    gl2.deleteQuery(head.query);
+  }
+}
+
+function beginGpuTimer(): WebGLQuery | null {
+  if (!gl2 || !timerExt || pendingGpuQueries.length >= 6) return null;
+  const query = gl2.createQuery();
+  if (!query) return null;
+  gl2.beginQuery(timerExt.TIME_ELAPSED_EXT, query);
+  return query;
+}
+
+function endGpuTimer(query: WebGLQuery | null, kind: 'shadow' | 'main'): void {
+  if (!gl2 || !timerExt || !query) return;
+  gl2.endQuery(timerExt.TIME_ELAPSED_EXT);
+  pendingGpuQueries.push({ kind, query });
+}
+
+const SHADOW_TRIGGER_LAYER = 2;
+const shadowDummyTarget = new THREE.WebGLRenderTarget(1, 1, {
+  depthBuffer: false,
+  stencilBuffer: false,
+});
+const shadowDriverCamera = new THREE.PerspectiveCamera(1, 1, 0.1, 1);
+shadowDriverCamera.layers.set(SHADOW_TRIGGER_LAYER);
+
+let runShadowCaptureOnTrigger = false;
+const shadowTriggerGeometry = new THREE.BufferGeometry();
+shadowTriggerGeometry.setAttribute(
+  'position',
+  new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3),
+);
+const shadowTriggerMaterial = new THREE.PointsMaterial({
+  size: 1,
+  colorWrite: false,
+  depthWrite: false,
+  depthTest: false,
+});
+const shadowTriggerPoints = new THREE.Points(shadowTriggerGeometry, shadowTriggerMaterial);
+shadowTriggerPoints.layers.set(SHADOW_TRIGGER_LAYER);
+shadowTriggerPoints.frustumCulled = false;
+shadowTriggerPoints.castShadow = false;
+shadowTriggerPoints.receiveShadow = false;
 const fogColor = '#c8d7df';
 renderer.setClearColor(fogColor);
 
@@ -153,7 +235,7 @@ const cameraRig = new CameraRig(camera, input, 5.2, 0.002, 2.07, -0.12);
 cameraRig.mode = 'thirdPerson';
 const logger = new Logger('world', 'info');
 const character = new Character();
-scene.add(new THREE.HemisphereLight('#9ec6e8', '#5a4836', 2.0));
+scene.add(new THREE.HemisphereLight('#b2d4f2', '#827462', 2.2));
 scene.add(character.group);
 
 // Dramatic warm afternoon sun angle creating authentic long shadows
@@ -220,13 +302,22 @@ let maximumFrameMs = 0;
 let lastStatsUpdate = frameWindowStart;
 let physicsQueryMs = 0;
 let actorUpdateMs = 0;
+let cameraOcclusionMs = 0;
+let npcAiMs = 0;
 let streamingUpdateMs = 0;
+let shadowRenderMs = 0;
+let mainRenderMs = 0;
 let renderUpdateMs = 0;
+let mainDrawCallsCount = 0;
+let mainTrianglesCount = 0;
+let shadowDrawCallsCount = 0;
+let shadowTrianglesCount = 0;
 let noticeUntil = 0;
 let bustCooldownUntil = 0;
 let recklessSeconds = 0;
 let focusInitialized = false;
 const previousFocus = new THREE.Vector3();
+const camFallbackDir = new THREE.Vector3();
 
 interface DebugSnapshot {
   readonly position: { readonly x: number; readonly y: number; readonly z: number };
@@ -244,8 +335,26 @@ interface DebugSnapshot {
   readonly systemTimesMs: {
     readonly physicsQuery: number;
     readonly actorUpdate: number;
+    readonly cameraOcclusion: number;
+    readonly npcAi: number;
     readonly streamingUpdate: number;
     readonly render: number;
+  };
+  readonly passBreakdown: {
+    readonly mainDrawCalls: number;
+    readonly mainTriangles: number;
+    readonly shadowDrawCalls: number;
+    readonly shadowTriangles: number;
+    readonly totalDrawCalls: number;
+    readonly totalTriangles: number;
+    readonly cpuShadowMs: number;
+    readonly cpuMainMs: number;
+    readonly cpuRenderTotalMs: number;
+    readonly gpuTimerSupported: boolean;
+    readonly gpuShadowMs: number | null;
+    readonly gpuMainMs: number | null;
+    readonly gpuTotalMs: number | null;
+    readonly blenderShadowStats: BlenderShadowStats | null;
   };
 }
 
@@ -253,6 +362,9 @@ declare global {
   interface Window {
     __CTA_DEBUG__?: {
       teleport(x: number, z: number): void;
+      setView(x: number, y: number, z: number, yaw: number, pitch: number): void;
+      thirdPersonView(x: number, z: number, yaw?: number, pitch?: number): void;
+      setShadowProfile(profile: ShadowLodProfile): void;
       metrics(): DebugSnapshot;
     };
   }
@@ -284,8 +396,8 @@ function debugSnapshot(): DebugSnapshot {
     loadedChunks: chunks?.loadedCount ?? 0,
     pendingChunks: chunks?.pendingCount ?? 0,
     colliderCount: chunks?.colliderCount ?? 0,
-    drawCalls: renderer.info.render.calls,
-    triangles: renderer.info.render.triangles,
+    drawCalls: mainDrawCallsCount,
+    triangles: mainTrianglesCount,
     worldMemoryMiB: chunks?.memoryMiB ?? 0,
     heapMemoryMiB: browserMemory ? browserMemory.usedJSHeapSize / (1024 * 1024) : null,
     agentsByLod: npcs?.lodCounts ?? [0, 0, 0],
@@ -294,8 +406,29 @@ function debugSnapshot(): DebugSnapshot {
     systemTimesMs: {
       physicsQuery: physicsQueryMs,
       actorUpdate: actorUpdateMs,
+      cameraOcclusion: cameraOcclusionMs,
+      npcAi: npcAiMs,
       streamingUpdate: streamingUpdateMs,
       render: renderUpdateMs,
+    },
+    passBreakdown: {
+      mainDrawCalls: mainDrawCallsCount,
+      mainTriangles: mainTrianglesCount,
+      shadowDrawCalls: shadowDrawCallsCount,
+      shadowTriangles: shadowTrianglesCount,
+      totalDrawCalls: mainDrawCallsCount + shadowDrawCallsCount,
+      totalTriangles: mainTrianglesCount + shadowTrianglesCount,
+      cpuShadowMs: shadowRenderMs,
+      cpuMainMs: mainRenderMs,
+      cpuRenderTotalMs: renderUpdateMs,
+      gpuTimerSupported: timerExt !== null,
+      gpuShadowMs,
+      gpuMainMs,
+      gpuTotalMs:
+        gpuShadowMs !== null && gpuMainMs !== null
+          ? gpuShadowMs + gpuMainMs
+          : (gpuMainMs ?? gpuShadowMs),
+      blenderShadowStats: chunks?.getBlenderShadowStats() ?? null,
     },
   };
 }
@@ -309,10 +442,45 @@ function teleportForAudit(x: number, z: number): void {
   character.position.set(x, ground ?? character.position.y, z);
   character.group.visible = true;
   focusInitialized = false;
-  camera.position.set(x, character.position.y + 8, z + 9);
+  cameraRig.setCameraPose(
+    x,
+    (ground ?? character.position.y) + 8,
+    z + 9,
+    cameraRig.getYaw(),
+    -0.25,
+  );
 }
 
-if (debugMode) window.__CTA_DEBUG__ = { teleport: teleportForAudit, metrics: debugSnapshot };
+function setDebugFreeView(x: number, y: number, z: number, yaw: number, pitch: number): void {
+  noclipEnabled = true;
+  inVehicle = false;
+  activeVehicle = null;
+  cameraRig.mode = 'free';
+  character.group.visible = false;
+  cameraRig.setCameraPose(x, y, z, yaw, pitch);
+}
+
+function setThirdPersonAuditView(x: number, z: number, yaw = 2.07, pitch = -0.14): void {
+  noclipEnabled = false;
+  inVehicle = false;
+  activeVehicle = null;
+  cameraRig.mode = 'thirdPerson';
+  const ground = chunks?.groundHeightAt(x, z);
+  character.position.set(x, ground ?? character.position.y, z);
+  character.group.visible = true;
+  focusInitialized = false;
+  cameraRig.setCameraPose(x, (ground ?? character.position.y) + 2.6, z + 7.5, yaw, pitch);
+}
+
+if (debugMode) {
+  window.__CTA_DEBUG__ = {
+    teleport: teleportForAudit,
+    setView: setDebugFreeView,
+    thirdPersonView: setThirdPersonAuditView,
+    setShadowProfile: (profile) => chunks?.setShadowProfile(profile),
+    metrics: debugSnapshot,
+  };
+}
 
 function normalizeLandmarkQuery(value: string): string {
   return value
@@ -448,61 +616,74 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
       ((driveInput.left || driveInput.right) && activeVehicle.speed > 9);
     audio.updateSkid(isSkidding);
     audio.setHorn(hornPressed);
+    if (debugMode) actorUpdateMs = performance.now() - systemStart;
+    const camStart = debugMode ? performance.now() : 0;
     cameraRig.mode = 'thirdPerson';
     cameraRig.setSpeedFov(activeVehicle.speed);
     cameraRig.update(frameSeconds, activeVehicle.position);
     const vh = chunks?.groundHeightAt(camera.position.x, camera.position.z);
     if (vh !== undefined && camera.position.y < vh + 0.5) camera.position.y = vh + 0.5;
     if (chunks?.collidesWithBuilding(camera.position.x, camera.position.z, 0)) {
-      const dir = camera.position.clone().sub(activeVehicle.position);
-      const dist = dir.length();
+      camFallbackDir.copy(camera.position).sub(activeVehicle.position);
+      const dist = camFallbackDir.length();
       if (dist > 0.1) {
-        dir.normalize();
+        camFallbackDir.normalize();
         for (let i = 0; i < 8; i += 1) {
           camera.position
             .copy(activeVehicle.position)
-            .addScaledVector(dir, dist * (1 - (i + 1) / 9));
+            .addScaledVector(camFallbackDir, dist * (1 - (i + 1) / 9));
           if (!chunks.collidesWithBuilding(camera.position.x, camera.position.z, 0)) break;
         }
       }
     }
+    if (debugMode) cameraOcclusionMs = performance.now() - camStart;
   } else if (cameraRig.mode === 'thirdPerson') {
     cameraRig.resetFov();
     audio.updateVehicleEngine(false, 0, false);
     audio.updateSkid(false);
     audio.setHorn(false);
-    character.update(frameSeconds, input, chunks, cameraRig.getYaw(), spacePressed);
-    if (character.stepTriggered) audio.playFootstep();
-    // The character is scripted (not a Rapier body), so resolve agent overlap here.
-    npcs?.resolveCollision(character.position, 0.35);
-    police?.resolveCollision(character.position, 0.35);
+    const groundHere = chunks?.groundHeightAt(character.position.x, character.position.z);
+    if (groundHere !== undefined) {
+      character.update(frameSeconds, input, chunks, cameraRig.getYaw(), spacePressed);
+      if (character.stepTriggered) audio.playFootstep();
+      // The character is scripted (not a Rapier body), so resolve agent overlap here.
+      npcs?.resolveCollision(character.position, 0.35);
+      police?.resolveCollision(character.position, 0.35);
+    }
+    if (debugMode) actorUpdateMs = performance.now() - systemStart;
+    const camStart = debugMode ? performance.now() : 0;
     cameraRig.update(frameSeconds, character.position);
     const ch = chunks?.groundHeightAt(camera.position.x, camera.position.z);
     if (ch !== undefined && camera.position.y < ch + 0.5) camera.position.y = ch + 0.5;
     // Safety: if the camera ended up inside a building footprint, pull it toward the character.
     if (chunks?.collidesWithBuilding(camera.position.x, camera.position.z, 0)) {
-      const dir = camera.position.clone().sub(character.position);
-      const dist = dir.length();
+      camFallbackDir.copy(camera.position).sub(character.position);
+      const dist = camFallbackDir.length();
       if (dist > 0.1) {
-        dir.normalize();
+        camFallbackDir.normalize();
         for (let i = 0; i < 8; i += 1) {
-          camera.position.copy(character.position).addScaledVector(dir, dist * (1 - (i + 1) / 9));
+          camera.position
+            .copy(character.position)
+            .addScaledVector(camFallbackDir, dist * (1 - (i + 1) / 9));
           if (!chunks.collidesWithBuilding(camera.position.x, camera.position.z, 0)) break;
         }
       }
       const ch2 = chunks.groundHeightAt(camera.position.x, camera.position.z);
       if (ch2 !== undefined && camera.position.y < ch2 + 0.5) camera.position.y = ch2 + 0.5;
     }
+    if (debugMode) cameraOcclusionMs = performance.now() - camStart;
   } else {
     audio.updateVehicleEngine(false, 0, false);
     audio.updateSkid(false);
     audio.setHorn(false);
+    if (debugMode) actorUpdateMs = performance.now() - systemStart;
+    const camStart = debugMode ? performance.now() : 0;
     cameraRig.update(frameSeconds);
     character.position.copy(camera.position);
     const characterGround = chunks?.groundHeightAt(character.position.x, character.position.z);
     if (characterGround !== undefined) character.position.y = characterGround;
+    if (debugMode) cameraOcclusionMs = performance.now() - camStart;
   }
-  if (debugMode) actorUpdateMs = performance.now() - systemStart;
   if (cameraRig.mode === 'free' && !noclipEnabled) {
     camera.position.x = THREE.MathUtils.clamp(camera.position.x, -500, 500);
     camera.position.z = THREE.MathUtils.clamp(camera.position.z, -500, 500);
@@ -527,6 +708,7 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
   );
   sunCorona.position.copy(sunDisk.position);
 
+  const aiStart = debugMode ? performance.now() : 0;
   if (npcs && chunks) npcs.update(frameSeconds, focus, camera, chunks);
   if (police && chunks) {
     police.update(frameSeconds, crime.stars, focus, camera, chunks);
@@ -538,6 +720,7 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
   }
   previousStars = crime.stars;
   audio.updatePoliceSiren(crime.stars, police ? police.nearestDistance(focus) : 999);
+  if (debugMode) npcAiMs = performance.now() - aiStart;
 
   if (
     npcs &&
@@ -587,9 +770,69 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
       initialVehiclePlaced = true;
     }
   }
+  pollGpuQueries();
+  if (renderer.shadowMap.enabled) {
+    if (!shadowTriggerPoints.parent) {
+      scene.add(shadowTriggerPoints);
+      sun.layers.enable(SHADOW_TRIGGER_LAYER);
+      shadowTriggerPoints.onBeforeRender = () => {
+        if (!runShadowCaptureOnTrigger) return;
+        shadowDriverCamera.layers.enable(0);
+        shadowDriverCamera.layers.enable(SHADOW_PROXY_LAYER);
+        renderer.info.reset();
+        renderer.shadowMap.needsUpdate = true;
+        const shadowStart = debugMode ? performance.now() : 0;
+        const shadowQuery = beginGpuTimer();
+        (
+          renderer.shadowMap as unknown as {
+            render(lights: THREE.Light[], s: THREE.Scene, c: THREE.Camera): void;
+          }
+        ).render([sun], scene, shadowDriverCamera);
+        endGpuTimer(shadowQuery, 'shadow');
+        if (debugMode) shadowRenderMs = performance.now() - shadowStart;
+        shadowDrawCallsCount = renderer.info.render.calls;
+        shadowTrianglesCount = renderer.info.render.triangles;
+        shadowDriverCamera.layers.set(SHADOW_TRIGGER_LAYER);
+        renderer.shadowMap.needsUpdate = false;
+      };
+    }
+
+    const savedBg = scene.background;
+    const savedFog = scene.fog;
+    const savedAutoClear = renderer.autoClear;
+    const savedAutoReset = renderer.info.autoReset;
+    scene.background = null;
+    scene.fog = null;
+    renderer.autoClear = false;
+    renderer.info.autoReset = false;
+    renderer.shadowMap.autoUpdate = false;
+    renderer.shadowMap.needsUpdate = false;
+    runShadowCaptureOnTrigger = true;
+    renderer.setRenderTarget(shadowDummyTarget);
+    renderer.render(scene, shadowDriverCamera);
+    runShadowCaptureOnTrigger = false;
+    renderer.setRenderTarget(null);
+    scene.background = savedBg;
+    scene.fog = savedFog;
+    renderer.autoClear = savedAutoClear;
+    renderer.info.autoReset = savedAutoReset;
+  } else {
+    renderer.shadowMap.autoUpdate = false;
+    shadowRenderMs = 0;
+    shadowDrawCallsCount = 0;
+    shadowTrianglesCount = 0;
+  }
+
   systemStart = debugMode ? performance.now() : 0;
+  const mainQuery = beginGpuTimer();
   renderer.render(scene, camera);
-  if (debugMode) renderUpdateMs = performance.now() - systemStart;
+  endGpuTimer(mainQuery, 'main');
+  if (debugMode) {
+    mainRenderMs = performance.now() - systemStart;
+    renderUpdateMs = shadowRenderMs + mainRenderMs;
+  }
+  mainDrawCallsCount = renderer.info.render.calls;
+  mainTrianglesCount = renderer.info.render.triangles;
   frameCount += 1;
   if (timestamp - frameWindowStart >= 500) {
     fpsLabel.textContent = String(Math.round((frameCount * 1000) / (timestamp - frameWindowStart)));
@@ -761,15 +1004,44 @@ window.addEventListener('pagehide', () => {
   police?.dispose();
   agentColliders?.dispose();
   chunks?.close();
+  shadowDummyTarget.dispose();
+  shadowTriggerGeometry.dispose();
+  shadowTriggerMaterial.dispose();
   renderer.dispose();
 });
+
+const worldParam = query.get('world');
+const requestedWorld =
+  worldParam === 'cc-prototype' ||
+  worldParam === 'cc-blender-sector' ||
+  worldParam === 'cc-blender-staging'
+    ? worldParam
+    : 'cc-monumental';
+const buildingPipelineParam = query.get('buildings') === 'blender' ? 'blender-library' : undefined;
+const rawBudget = query.get('budget');
+const requestedBudget =
+  rawBudget === '600k' || rawBudget === '1200k' || rawBudget === '2000k' ? rawBudget : '1200k';
+const rawShadowProfile = query.get('shadowProfile');
+const requestedShadowProfile: ShadowLodProfile =
+  rawShadowProfile === 'wide' || rawShadowProfile === 'balanced' || rawShadowProfile === 'proxy'
+    ? rawShadowProfile
+    : 'proxy';
 
 async function initializeWorld(): Promise<void> {
   world = await createPhysicsWorld();
   agentColliders = new AgentColliders(world);
   const worldBaseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
-  const manifestUrl = new URL('world/cc-monumental/manifest.json', worldBaseUrl);
-  chunks = new ChunkManager(scene, world, manifestUrl, worldBaseUrl, cityKitEnabled);
+  const manifestUrl = new URL(`world/${requestedWorld}/manifest.json`, worldBaseUrl);
+  chunks = new ChunkManager(
+    scene,
+    world,
+    manifestUrl,
+    worldBaseUrl,
+    cityKitEnabled,
+    requestedBudget,
+    buildingPipelineParam,
+    requestedShadowProfile,
+  );
   cameraRig.occlusion = (origin, dir, maxDist) =>
     chunks?.cameraOcclusion(origin, dir, maxDist) ?? maxDist;
   chunks.events.on('chunkLoaded', ({ id, lod }) =>
@@ -798,7 +1070,7 @@ async function initializeWorld(): Promise<void> {
     });
   for (const vehicle of vehicles) loadVehicleVisual(vehicle);
   statusLabel.textContent = 'Ciudad lista · WASD camina · clic captura el ratón';
-  logger.info('World streaming initialized', { region: 'cc-monumental', stepHz: 60, lods: 3 });
+  logger.info('World streaming initialized', { region: requestedWorld, stepHz: 60, lods: 3 });
   void initializeNpcs(worldBaseUrl).catch((error: unknown) => {
     agentsLabel.textContent = 'sin red viaria';
     logger.warn('Traffic initialization failed', { error: String(error) });

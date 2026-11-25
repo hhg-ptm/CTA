@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "project": "Cáceres Criminal (CTA)",
-  "phase": "FASE 1 - Base de datos y arquitectura",
+  "phase": "FASE 2 - Generador procedural 3D, vegetación, mobiliario y prototipo 4 zonas",
   "generatedAt": "2026-11-25",
   "region": "cc-monumental",
   "crs": {
@@ -77,10 +77,18 @@
       "bytes": 8459435,
       "sha256": "5efda1000147ac279a2b17aea8b5990a96101db309ff371403ec5a0c7db88e60",
       "zipEntries": {
-        "A.ES.SDGC.BU.10900.building.gml": { "uncompressedBytes": 64826777 },
-        "A.ES.SDGC.BU.10900.buildingpart.gml": { "uncompressedBytes": 143861218 },
-        "A.ES.SDGC.BU.10900.otherconstruction.gml": { "uncompressedBytes": 3824909 },
-        "A.ES.SDGC.BU.MD.10900.xml": { "uncompressedBytes": 20006 }
+        "A.ES.SDGC.BU.10900.building.gml": {
+          "uncompressedBytes": 64826777
+        },
+        "A.ES.SDGC.BU.10900.buildingpart.gml": {
+          "uncompressedBytes": 143861218
+        },
+        "A.ES.SDGC.BU.10900.otherconstruction.gml": {
+          "uncompressedBytes": 3824909
+        },
+        "A.ES.SDGC.BU.MD.10900.xml": {
+          "uncompressedBytes": 20006
+        }
       }
     },
     "catastroAtomAddresses": {
@@ -91,8 +99,12 @@
       "bytes": 749989,
       "sha256": "ffd6a455834dfad6ec22e75b6eb8a3ade3f2fdd6afc6463325c3d7e13422dde4",
       "zipEntries": {
-        "A.ES.SDGC.AD.10900.gml": { "uncompressedBytes": 27092840 },
-        "A.ES.SDGC.AD.MD.10900.xml": { "uncompressedBytes": 20405 }
+        "A.ES.SDGC.AD.10900.gml": {
+          "uncompressedBytes": 27092840
+        },
+        "A.ES.SDGC.AD.MD.10900.xml": {
+          "uncompressedBytes": 20405
+        }
       }
     },
     "catastroAtomParcels": {
@@ -103,9 +115,15 @@
       "bytes": 11020212,
       "sha256": "be9fdb9add796c0ec4567aacfc20ae255824f9ff9b3a7684cb96815e69fe0676",
       "zipEntries": {
-        "A.ES.SDGC.CP.10900.cadastralparcel.gml": { "uncompressedBytes": 62378277 },
-        "A.ES.SDGC.CP.10900.cadastralzoning.gml": { "uncompressedBytes": 8126274 },
-        "A.ES.SDGC.CP.MD..10900.xml": { "uncompressedBytes": 25493 }
+        "A.ES.SDGC.CP.10900.cadastralparcel.gml": {
+          "uncompressedBytes": 62378277
+        },
+        "A.ES.SDGC.CP.10900.cadastralzoning.gml": {
+          "uncompressedBytes": 8126274
+        },
+        "A.ES.SDGC.CP.MD..10900.xml": {
+          "uncompressedBytes": 25493
+        }
       },
       "phase1Usage": "Archived locally for FASE 2/5 lot boundaries and urban block subdivision."
     },
@@ -185,76 +203,64 @@
     "catastroAtomStats": {
       "buildingsMunicipality": 13631,
       "buildingsIn7600m": 11068,
-      "buildingsWithPartFloorsIn7600m": 11068,
-      "buildingsWithCourtyardsIn7600m": 620,
+      "buildingsWithPartFloorsIn7600m": 11061,
+      "buildingsWithCourtyardsIn7600m": 557,
       "partsMunicipality": 57659,
       "partsIn7600m": 48805,
+      "otherConstructionMunicipality": 1827,
+      "otherConstructionIn7600m": 1137,
       "portalsMunicipality": 18550,
       "portalsIn7600m": 16689,
       "topMaxFloorDistributionIn7600m": {
-        "2": 4954,
-        "3": 2180,
-        "1": 2058,
-        "4": 722,
-        "5": 321,
-        "6": 201,
-        "7": 201,
-        "8": 151,
-        "9": 125,
+        "0": 37,
+        "1": 2063,
+        "2": 4967,
+        "3": 2167,
+        "4": 732,
+        "5": 305,
+        "6": 196,
+        "7": 202,
+        "8": 150,
+        "9": 124,
         "10": 48,
-        "11": 40,
-        "0": 37
+        "11": 40
       }
     },
     "heightProvenance": {
       "osm_explicit": 60,
-      "catastro_floors": 6124,
-      "realVerifiedTotal": 6184,
-      "realVerifiedPercent": 85.31,
-      "catastro_footprint_matched": 6179,
-      "overlapBothOsmAndCatastro": 39,
-      "heuristic_fallback": 1065,
-      "heuristicFallbackBreakdown": {
-        "unmatchedNoCatastroMatch": 1049,
-        "matchedCatastroZeroFloors": 16,
-        "unmatchedTopOsmTypes": {
-          "yes": 669,
-          "industrial": 88,
-          "terrace": 85,
-          "roof": 78,
-          "residential": 53,
-          "school": 20,
-          "apartments": 12,
-          "farm_auxiliary": 11,
-          "university": 9,
-          "ruins": 7,
-          "public": 7,
-          "commercial": 6
-        }
-      },
+      "catastro_floors": 5964,
+      "realVerifiedTotal": 6024,
+      "realVerifiedPercent": 83.1,
+      "catastro_footprint_matched": 6019,
+      "otherconstruction_matched": 4,
+      "estimated": 319,
+      "unknown": 906,
+      "heuristic_fallback": 1225,
       "maxObservedFloors": {
         "catastro": 16,
         "osm": 11
       }
     },
     "catastroUsesMatched": {
-      "1_residential": 5212,
-      "3_industrial": 344,
-      "4_3_publicServices": 284,
-      "4_2_retail": 246,
-      "4_1_office": 50,
-      "2_agriculture": 8
+      "1_residential": 5091,
+      "3_industrial": 330,
+      "4_3_publicServices": 279,
+      "4_2_retail": 234,
+      "4_1_office": 47,
+      "2_agriculture": 7
     },
     "catastroErasMatched": {
-      "modern_1985_plus": 2088,
-      "classic_1900_1950": 2017,
-      "ensanche_1950_1985": 1955,
-      "historic_pre_1900": 94
+      "modern_1985_plus": 2058,
+      "classic_1900_1950": 1955,
+      "ensanche_1950_1985": 1892,
+      "historic_pre_1900": 91
     },
     "architecturalEnrichmentCounts": {
-      "buildingsWithMultipleCatastroParts": 4955,
-      "buildingsWithCourtyard": 713,
-      "buildingsWithPortalsMatched": 5688
+      "buildingsWithMultipleCatastroParts": 4553,
+      "buildingsWithCourtyard": 659,
+      "buildingsWithExportedInnerRings": 484,
+      "buildingsWithExportedSteppedParts": 2444,
+      "buildingsWithPortalsMatched": 5806
     },
     "osmStreetPropsAndVegetation": {
       "tree": 7313,
@@ -276,77 +282,110 @@
       "name": "Casco Antiguo / Plaza Mayor",
       "osmSampleId": "w22358108",
       "sampleLabel": "Ayuntamiento de Cáceres",
-      "gameMeters": { "x": -34.6, "z": -6.9 },
+      "gameMeters": {
+        "x": -34.6,
+        "z": -6.9
+      },
       "inside7600m": true
     },
     {
       "name": "Centro / Paseo de Cánovas",
       "osmSampleId": "w30824096",
       "sampleLabel": "Paseo de Cánovas",
-      "gameMeters": { "x": -574.0, "z": -492.7 },
+      "gameMeters": {
+        "x": -574,
+        "z": -492.7
+      },
       "inside7600m": true
     },
     {
       "name": "San Blas",
       "osmSampleId": "w238698337",
       "sampleLabel": "Ermita de San Blas",
-      "gameMeters": { "x": 164.3, "z": 635.9 },
+      "gameMeters": {
+        "x": 164.3,
+        "z": 635.9
+      },
       "inside7600m": true
     },
     {
       "name": "San Marquino",
       "osmSampleId": "n1757250456",
       "sampleLabel": "Ermita de San Marquino",
-      "gameMeters": { "x": 499.3, "z": -147.9 },
+      "gameMeters": {
+        "x": 499.3,
+        "z": -147.9
+      },
       "inside7600m": true
     },
     {
       "name": "Plaza de Toros Era de los Mártires",
       "osmSampleId": "w376803613",
       "sampleLabel": "Plaza de Toros Era de los Mártires",
-      "gameMeters": { "x": -366.2, "z": 643.4 },
+      "gameMeters": {
+        "x": -366.2,
+        "z": 643.4
+      },
       "inside7600m": true
     },
     {
       "name": "Moctezuma / R-66",
       "osmSampleId": "w596167832",
       "sampleLabel": "Casa Municipal de cultura Moctezuma",
-      "gameMeters": { "x": -452.7, "z": -1482.2 },
+      "gameMeters": {
+        "x": -452.7,
+        "z": -1482.2
+      },
       "inside7600m": true
     },
     {
       "name": "Estación de Cáceres y Autobuses",
       "osmSampleId": "w53246385",
       "sampleLabel": "Estación de Cáceres",
-      "gameMeters": { "x": -1171.8, "z": -1499.3 },
+      "gameMeters": {
+        "x": -1171.8,
+        "z": -1499.3
+      },
       "inside7600m": true
     },
     {
       "name": "Nuevo Cáceres / Espíritu Santo",
       "osmSampleId": "w58253870",
       "sampleLabel": "Plaza del Espíritu Santo",
-      "gameMeters": { "x": 333.9, "z": -1528.3 },
+      "gameMeters": {
+        "x": 333.9,
+        "z": -1528.3
+      },
       "inside7600m": true
     },
     {
       "name": "Mejostilla y Montesol",
       "osmSampleId": "w466170582",
       "sampleLabel": "Centro Cívico Mejostilla",
-      "gameMeters": { "x": 510.1, "z": 1416.9 },
+      "gameMeters": {
+        "x": 510.1,
+        "z": 1416.9
+      },
       "inside7600m": true
     },
     {
       "name": "Zona Comercial El Vivero",
       "osmSampleId": "w24717473",
       "sampleLabel": "Zona Comercial El Vivero",
-      "gameMeters": { "x": -1819.2, "z": -282.9 },
+      "gameMeters": {
+        "x": -1819.2,
+        "z": -282.9
+      },
       "inside7600m": true
     },
     {
       "name": "Aldea Moret",
       "osmSampleId": "n7972975663",
       "sampleLabel": "A. Moret (cruce c/ Danubio)",
-      "gameMeters": { "x": -1491.0, "z": -2543.1 },
+      "gameMeters": {
+        "x": -1491,
+        "z": -2543.1
+      },
       "inside7600m": true,
       "note": "Covered inside southern chunks; sparse OSM suburb boundary tagging, enriched via Catastro BU."
     },
@@ -354,14 +393,20 @@
       "name": "Polígono Industrial Charca Musia",
       "osmSampleId": "n7972975682",
       "sampleLabel": "Polígono Charca Musia",
-      "gameMeters": { "x": 537.8, "z": -2332.2 },
+      "gameMeters": {
+        "x": 537.8,
+        "z": -2332.2
+      },
       "inside7600m": true
     },
     {
       "name": "Polígono Industrial Las Capellanías y Estadio Príncipe Felipe",
       "osmSampleId": "w257266364",
       "sampleLabel": "Estadio Príncipe Felipe",
-      "gameMeters": { "x": -3556.7, "z": 1305.3 },
+      "gameMeters": {
+        "x": -3556.7,
+        "z": 1305.3
+      },
       "inside7600m": true,
       "note": "Westernmost industrial fringe (c/ Molineros bus stop) reaches x = -3868.0 m, 68 m beyond the -3800 m chunk boundary."
     },
@@ -369,24 +414,32 @@
       "name": "Campus Universitario UEx",
       "osmSampleId": "w377649521",
       "sampleLabel": "Campus Cáceres Universidad de Extremadura",
-      "gameMeters": { "x": 2453.7, "z": 690.7 },
+      "gameMeters": {
+        "x": 2453.7,
+        "z": 690.7
+      },
       "inside7600m": true
     },
     {
       "name": "Hospital Universitario de Cáceres",
       "osmSampleId": "w389025250",
       "sampleLabel": "Ciudad de la Salud y la Innovación",
-      "gameMeters": { "x": 3549.7, "z": 196.9 },
+      "gameMeters": {
+        "x": 3549.7,
+        "z": 196.9
+      },
       "inside7600m": true
     }
   ],
   "existingAssetsSummary": {
     "cityKitManifest": "public/models/citykit/manifest.json",
-    "cityKitGlbCount": 44,
-    "cityKitModulesCount": 22,
-    "cityKitBuildingModulesCount": 17,
-    "cityKitRoadModulesCount": 5,
-    "cityKitTotalBytesOnDisk": 1215895,
-    "heroLandmarkGlbCount": 0
+    "cityKitGlbCount": 72,
+    "cityKitModulesCount": 36,
+    "cityKitBuildingModulesCount": 19,
+    "cityKitRoadModulesCount": 17,
+    "cityKitTotalBytesOnDisk": 1145568,
+    "heroLandmarkGlbCount": 0,
+    "prototypeStagingDir": "public/world/cc-prototype/",
+    "prototypeChunkCount": 23
   }
 }

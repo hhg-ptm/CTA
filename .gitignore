@@ -3,7 +3,12 @@ dist/
 playwright-report/
 test-results/
 reports/screens/
+reports/blender_experiment/
+*.blend1
 coverage/
 data/raw/**
 !data/raw/.gitkeep
 data/staging/**
+public/world/cc-blender-staging/**
+__pycache__/
+*.pyc

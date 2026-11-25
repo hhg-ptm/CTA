@@ -1,8 +1,8 @@
-# Cáceres Criminal — Especificación Técnica de Reconstrucción 3D (FASE 1)
+# Cáceres Criminal — Especificación Técnica de Reconstrucción 3D (FASE 1 y FASE 2)
 
-**Estado:** FASE 1 completada (Base de datos, cruce geográfico y auditoría arquitectónica)  
+**Estado:** FASE 2 completada (Nuevo generador 3D Stylized Low Poly, CityKit v2 y prototipo de 4 zonas validado en staging)  
 **Rama de trabajo:** `feat/caceres-3d-reconstruction`  
-**Área de juego:** `public/world/cc-monumental/` **preservada intacta** (`900` chunks, `7.148` edificios en mundo)  
+**Área de juego:** `public/world/cc-monumental/` **preservada intacta** (`900` chunks, `7.148` edificios en mundo); prototipo activo en `public/world/cc-prototype/` (`23` chunks, `2.188` edificios)  
 **Artefactos hermanos:** [`caceres_data_manifest.json`](file:///c:/Users/cerbe/Downloads/CTA-main/CTA-main/repo/caceres_data_manifest.json) y [`caceres_building_styles.json`](file:///c:/Users/cerbe/Downloads/CTA-main/CTA-main/repo/caceres_building_styles.json)
 
 ---
@@ -61,15 +61,15 @@ El gran hallazgo técnico de FASE 1 es que, aunque el fichero GML principal de C
 | Indicador | Producción actual (`cc-monumental`) | Staging FASE 1 (`cc-monumental-expanded` + Catastro ATOM) |
 | --- | --- | --- |
 | Edificios OSM en mundo (`±3.800 m`) | `7.148` | `7.249` (incluye `106` relaciones multipolígono y `16` `building:part`) |
-| Edificios con altura o plantas OSM explícitas | `56` (`55` niveles + `1` altura; `0,78 %`) | `60` (`osm_explicit`; `39` también emparejados en Catastro) |
-| Edificios con plantas reales de Catastro (`BuildingPart`) | `0` integrados (solo contraste 1 km `2.502` edif.) | `6.124` (`catastro_floors`; total emparejados: `6.179`) |
-| **Total edificios con altura real verificada** | **`56` (`0,78 %`)** | **`6.184 / 7.249` (`85,31 %`)** |
-| Edificios en `heuristic_fallback` (estimación explícita) | `7.092` (`99,22 %`) | `1.065` (`14,69 %`: `1.049` sin cruce + `16` con `0` plantas en Catastro) |
-| Edificios con múltiples cuerpos / volúmenes escalonados | No modelado | `4.955` (`catastroPartCount > 1`) |
-| Edificios con patio interior detectado | Ignorado al extruir | `713` (`620` anillos Catastro + `102` relaciones OSM) |
-| Edificios con portales de dirección cercanos (`AD`) | No utilizado | `5.688` (de `16.689` portales en área de juego) |
-| Usos catastrales identificados | Solo etiquetas OSM | `1_residential: 5.212`, `3_industrial: 344`, `4_3_publicServices: 284`, `4_2_retail: 246`, `4_1_office: 50`, `2_agriculture: 8` |
-| Épocas constructivas identificadas | Solo zona radial | `modern_1985_plus: 2.088`, `classic_1900_1950: 2.017`, `ensanche_1950_1985: 1.955`, `historic_pre_1900: 94` |
+| Edificios con altura o plantas OSM explícitas | `56` (`55` niveles + `1` altura; `0,78 %`) | `60` (`osm_explicit`) |
+| Edificios con plantas reales de Catastro (`BuildingPart`) | `0` integrados (solo contraste 1 km `2.502` edif.) | `5.964` (`catastro_floors`; total huellas emparejadas: `6.019` + `4` `otherconstruction`) |
+| **Total edificios con altura real verificada** | **`56` (`0,78 %`)** | **`6.024 / 7.249` (`83,10 %`)** |
+| Edificios en `heuristic_fallback` (estimación / desconocido) | `7.092` (`99,22 %`) | `1.225` (`16,90 %`: `319` `estimated` + `906` `unknown`) |
+| Edificios con múltiples cuerpos / volúmenes escalonados | No modelado | `2.444` con partes escalonadas exportadas tras filtrado estricto intra-huella (de `4.553` multi-parte) |
+| Edificios con patio interior detectado | Ignorado al extruir | `659` detectados (`484` anillos interiores exportados para triangulación con huecos) |
+| Edificios con portales de dirección cercanos (`AD`) | No utilizado | `5.806` (de `16.689` portales en área de juego) |
+| Usos catastrales identificados | Solo etiquetas OSM | `1_residential: 5.091`, `3_industrial: 330`, `4_3_publicServices: 279`, `4_2_retail: 234`, `4_1_office: 47`, `2_agriculture: 7` |
+| Épocas constructivas identificadas | Solo zona radial | `modern_1985_plus: 2.058`, `classic_1900_1950: 1.955`, `ensanche_1950_1985: 1.892`, `historic_pre_1900: 91` |
 
 ### Limitaciones documentadas y honestidad de datos
 
@@ -142,14 +142,11 @@ El kit completo suma **`44` GLB LOD0/LOD1** (`22` módulos) más el manifiesto, 
 
 ## 5. Hoja de ruta técnica (FASE 2 — FASE 6)
 
-- **FASE 2 — Nuevo sistema procedural de edificios (`building-builder` + CityKit v2 en Blender):**
-  - Integrar los datos de [`caceres_building_styles.json`](file:///c:/Users/cerbe/Downloads/CTA-main/CTA-main/repo/caceres_building_styles.json) y `data/staging/cc-monumental/building_enrichment.json` manteniendo colisiones Rapier exactas.
-  - Añadir triangulación con huecos para los `713` patios interiores, volúmenes escalonados para edificios multi-parte (`4.955`), zócalos/impostas/cornisas en relieve, ventanas con jamba y persiana/contraventana, variantes de árboles según taxonomía OSM (`broadleaved`/`needleleaved`) y mobiliario urbano (`214` marquesinas `bus_stop`, bancos, bolardos y fuentes).
-  - *Nota visual pendiente para FASE 2/3:* solicitar al usuario la **Imagen 1 de referencia artística (Stylized Low Poly City Environment)** antes de fijar el sombreado, saturación y grosor final de biseles.
-- **FASE 3 — Prototipo visual y recorrido en 5 zonas:** Generar muestra en staging y capturas a altura de personaje + vista aérea en **Casco Antiguo**, **Centro/Ensanche residencial**, **Aldea Moret/Chalet**, **El Vivero/Zona comercial** y **Nuevo Cáceres/Campus** antes de tocar la ciudad completa.
-- **FASE 4 — Monumentos y edificios singulares en Blender:** Modelar GLBs propios (`public/models/landmarks/`) para Torre de Bujaco, Concatedral de Santa María, Arco de la Estrella, Ayuntamiento de Cáceres, Palacio de Carvajal/Veletas, Plaza de Toros, Estación de Cáceres y edificios singulares.
-- **FASE 5 — Reconstrucción completa de los 900 chunks en staging:** Procesar toda la huella urbana en staging manteniendo intactos carreteras, alturas MDT05 y rutas NPC, con promoción atómica solo tras superar verificación automática.
-- **FASE 6 — Integración y optimización:** Empaquetado/deduplicación de texturas CityKit, validación automática (`draw calls <= 300`, `tris <= 600.000`), tests unitarios y auditoría Playwright/WebGL.
+- **FASE 2 — Nuevo sistema procedural de edificios (`building-builder` + CityKit v2 en Blender) ✅ Completada:**
+  - Implementada triangulación real con huecos (`src/world/polygon-holes.ts`), volúmenes escalonados multi-cuerpo con filtrado estricto intra-huella (`2.444` edificios), áticos retranqueados (`buildSetbackPenthouseSpec`), ventanas 3D rehundidas con alféizares/contraventanas/toldos integrados en malla (`src/world/building-volumes.ts`), orientacion por portales Catastro `AD`, y proxy ligero de sombras LOD2.
+  - Ampliado `CityKit v2` en Blender (`36` módulos / `72` GLBs LOD0-LOD1 con atlas compartido `256×192`): `deciduous`, `oak`, `pine`, `palm`, `cypress`, `shrub`, `hedge`, `bus-shelter`, `park-bench`, `waste-bin`, `fountain`, `street-lamp-modern`, `window-awning`, `rooftop-solar`.
+  - Validado el prototipo en staging [`public/world/cc-prototype/`](file:///c:/Users/cerbe/Downloads/CTA-main/CTA-main/repo/public/world/cc-prototype/manifest.json) (`23` chunks, `2.188` edificios) mediante [`tests/e2e/prototype-renders.spec.ts`](file:///c:/Users/cerbe/Downloads/CTA-main/CTA-main/repo/tests/e2e/prototype-renders.spec.ts) con `16` capturas en 4 zonas (`<= 150` *draw calls* y `<= 532.421` triángulos, `0` errores).
+- **FASE 3/4 — Monumentos hero en Blender y escalado completo de 900 chunks (Pendiente de aprobación tras prototipo):** Modelar GLBs propios (`public/models/landmarks/`) para Torre de Bujaco, Concatedral de Santa María, Arco de la Estrella, Ayuntamiento y edificios singulares, antes de reconstruir los `900` chunks completos manteniendo `public/world/cc-monumental/` a salvo hasta promoción verificada.
 
 ---
 

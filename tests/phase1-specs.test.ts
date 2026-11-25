@@ -48,10 +48,11 @@ describe('Phase 1 Cáceres reconstruction specs', () => {
     expect(heightProvenance.realVerifiedTotal + heightProvenance.heuristic_fallback).toBe(
       osmBuildingsInWorld,
     );
-    expect(manifest.existingAssetsSummary.cityKitGlbCount).toBe(44);
+    expect(manifest.existingAssetsSummary.cityKitGlbCount).toBe(72);
+    expect(manifest.existingAssetsSummary.cityKitModulesCount).toBe(36);
   });
 
-  it('audits all 12 building archetypes and all 22 CityKit modules', () => {
+  it('audits all 12 building archetypes and all 36 CityKit v2 modules', () => {
     const styles = JSON.parse(
       readFileSync(join(ROOT, 'caceres_building_styles.json'), 'utf8'),
     ) as BuildingStylesSpec;
@@ -64,7 +65,7 @@ describe('Phase 1 Cáceres reconstruction specs', () => {
       ...styles.cityKitAudit.buildingModules,
       ...styles.cityKitAudit.roadAndVegetationModules,
     ];
-    expect(audited).toHaveLength(22);
+    expect(audited).toHaveLength(36);
 
     for (const item of audited) {
       const lod0 = kitManifest.models[`${item.id}-lod0`];

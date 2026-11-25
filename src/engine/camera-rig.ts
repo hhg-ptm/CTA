@@ -55,6 +55,15 @@ export class CameraRig {
     return this.yaw;
   }
 
+  /** Set explicit camera pose (used in debug inspection & free-camera tour screenshots). */
+  setCameraPose(x: number, y: number, z: number, yaw: number, pitch: number): void {
+    this.camera.position.set(x, y, z);
+    this.yaw = yaw;
+    this.pitch = MathUtils.clamp(pitch, -1.45, 1.45);
+    this.smoothInitialized = false;
+    this.syncRotation();
+  }
+
   /** Point the orbit camera behind a heading and snap the follow next frame. */
   setYaw(yaw: number): void {
     this.yaw = MathUtils.euclideanModulo(yaw + Math.PI, Math.PI * 2) - Math.PI;

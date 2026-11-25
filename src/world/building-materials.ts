@@ -154,66 +154,68 @@ function drawMasonryTexture(
 ): void {
   const next = seededSequence(seed);
   if (theme.masonry === 'brick') {
-    const bh = 8;
-    const bw = 20;
+    // Clean stylized brick warmth without noisy dark pixels
+    const bh = 10;
+    const bw = 24;
     for (let by = 0; by < tile; by += bh) {
       const offset = ((by / bh) % 2) * (bw / 2);
-      ctx.fillStyle = 'rgb(232 222 206 / 22%)';
+      ctx.fillStyle = 'rgb(244 232 216 / 14%)';
       ctx.fillRect(x, y + by, tile, 1);
       for (let bx = -offset; bx < tile; bx += bw) {
-        ctx.fillStyle = next() > 0.5 ? 'rgb(28 10 6 / 16%)' : 'rgb(255 190 140 / 10%)';
+        ctx.fillStyle = next() > 0.5 ? 'rgb(255 210 175 / 9%)' : 'rgb(80 28 14 / 8%)';
         ctx.fillRect(x + Math.max(0, bx + 1), y + by + 1, Math.min(bw - 1.5, tile - bx), bh - 1.2);
-        ctx.fillStyle = 'rgb(232 222 206 / 20%)';
-        if (bx >= 0) ctx.fillRect(x + bx, y + by, 1, bh);
       }
     }
     return;
   }
   if (theme.masonry === 'ashlar') {
-    const bh = 22;
+    // Subtle sunlit Cáceres golden granite coursing (clean Stylized Low Poly blocks)
+    const bh = 26;
     for (let by = 0; by < tile; by += bh) {
-      const offset = ((by / bh) % 2) * 24;
-      for (let bx = -offset; bx < tile; bx += 48) {
-        const w = Math.min(46, tile - Math.max(0, bx));
+      const offset = ((by / bh) % 2) * 26;
+      ctx.fillStyle = 'rgb(255 248 228 / 14%)';
+      ctx.fillRect(x, y + by + 1, tile, 1.5);
+      for (let bx = -offset; bx < tile; bx += 52) {
+        const w = Math.min(50, tile - Math.max(0, bx));
         const rx = x + Math.max(0, bx);
-        ctx.fillStyle = next() > 0.5 ? 'rgb(255 248 228 / 12%)' : 'rgb(52 42 30 / 10%)';
-        ctx.fillRect(rx + 1, y + by + 1, Math.max(1, w - 2), bh - 2);
-        ctx.fillStyle = 'rgb(70 58 44 / 26%)';
-        ctx.fillRect(x, y + by, tile, 1.5);
-        if (bx >= 0) ctx.fillRect(x + bx, y + by, 1.5, bh);
+        ctx.fillStyle = next() > 0.5 ? 'rgb(255 250 236 / 9%)' : 'rgb(110 92 66 / 7%)';
+        ctx.fillRect(rx + 1, y + by + 2, Math.max(1, w - 2), bh - 3);
+        ctx.fillStyle = 'rgb(115 96 72 / 12%)';
+        if (bx >= 0) ctx.fillRect(x + bx, y + by, 1.2, bh);
       }
     }
     return;
   }
   if (theme.masonry === 'corrugated') {
-    for (let bx = 0; bx < tile; bx += 8) {
-      ctx.fillStyle = 'rgb(255 255 255 / 16%)';
+    for (let bx = 0; bx < tile; bx += 10) {
+      ctx.fillStyle = 'rgb(255 255 255 / 12%)';
       ctx.fillRect(x + bx, y, 2, tile);
-      ctx.fillStyle = 'rgb(30 35 40 / 18%)';
-      ctx.fillRect(x + bx + 4, y, 2.5, tile);
+      ctx.fillStyle = 'rgb(40 48 56 / 12%)';
+      ctx.fillRect(x + bx + 5, y, 2, tile);
     }
-    ctx.fillStyle = 'rgb(45 50 56 / 28%)';
+    ctx.fillStyle = 'rgb(45 50 56 / 18%)';
     ctx.fillRect(x, y + tile / 2, tile, 2);
     return;
   }
   if (theme.masonry === 'curtain') {
-    ctx.fillStyle = '#33464f';
+    ctx.fillStyle = '#364d59';
     ctx.fillRect(x + 4, y + 6, tile - 8, tile - 14);
     const grad = ctx.createLinearGradient(x, y, x + tile, y + tile);
-    grad.addColorStop(0, '#7292a1');
-    grad.addColorStop(1, '#314c59');
+    grad.addColorStop(0, '#78b4d4');
+    grad.addColorStop(0.55, '#4682a4');
+    grad.addColorStop(1, '#2b556c');
     ctx.fillStyle = grad;
     ctx.fillRect(x + 8, y + 10, tile - 16, tile - 22);
     ctx.fillStyle = theme.trim;
-    ctx.fillRect(x, y, tile, 10);
-    ctx.fillRect(x, y + tile - 10, tile, 10);
-    ctx.fillRect(x + tile * 0.48, y + 8, 4, tile - 16);
+    ctx.fillRect(x, y, tile, 9);
+    ctx.fillRect(x, y + tile - 9, tile, 9);
+    ctx.fillRect(x + tile * 0.48, y + 8, 3, tile - 16);
     return;
   }
-  // Limewash / warm plaster subtle mineral flecks
-  for (let i = 0; i < 36; i += 1) {
-    ctx.fillStyle = next() > 0.5 ? 'rgb(255 252 242 / 14%)' : 'rgb(75 60 44 / 8%)';
-    const sz = 1.5 + next() * 3.5;
+  // Smooth limewash / plaster with minimal warm sunlight grain
+  for (let i = 0; i < 14; i += 1) {
+    ctx.fillStyle = next() > 0.5 ? 'rgb(255 253 246 / 10%)' : 'rgb(140 120 96 / 4%)';
+    const sz = 2 + next() * 5;
     ctx.fillRect(x + next() * tile, y + next() * tile, sz, sz);
   }
 }
@@ -233,24 +235,25 @@ function drawGlassPane(
     ctx.fillRect(x + 2, y + 2, Math.max(2, w - 4), Math.max(2, h - 4));
     return;
   }
-  ctx.fillStyle = '#2d2824';
+  // Vibrant cerulean-sky stylized glazing with crisp frame and sky slash
+  ctx.fillStyle = '#25292e';
   ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
   const grad = ctx.createLinearGradient(x, y, x + w, y + h);
-  grad.addColorStop(0, '#698591');
-  grad.addColorStop(1, '#263942');
+  grad.addColorStop(0, '#78bfe3');
+  grad.addColorStop(0.55, '#3e7da1');
+  grad.addColorStop(1, '#24526b');
   ctx.fillStyle = grad;
   ctx.fillRect(x, y, w, h);
-  // Crisp sky diagonal reflection
-  ctx.fillStyle = 'rgb(235 247 255 / 26%)';
+  ctx.fillStyle = 'rgb(240 251 255 / 38%)';
   ctx.beginPath();
   ctx.moveTo(x + 2, y + 2);
-  ctx.lineTo(x + Math.min(w - 2, 16), y + 2);
-  ctx.lineTo(x + 2, y + Math.min(h - 2, 26));
+  ctx.lineTo(x + Math.min(w - 2, 20), y + 2);
+  ctx.lineTo(x + 2, y + Math.min(h - 2, 30));
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = frame;
-  ctx.fillRect(x + w * 0.5 - 1.5, y, 3, h);
-  ctx.fillRect(x, y + h * 0.52, w, 2.5);
+  ctx.fillRect(x + w * 0.5 - 1.2, y, 2.4, h);
+  ctx.fillRect(x, y + h * 0.52, w, 2);
 }
 
 function drawTileOpenings(
@@ -418,36 +421,36 @@ function drawRoof(tile: boolean): HTMLCanvasElement {
   if (!ctx) throw new Error('Could not create procedural roof texture.');
   canvas.width = 256;
   canvas.height = 256;
-  ctx.fillStyle = tile ? '#945235' : '#898882';
+  ctx.fillStyle = tile ? '#b96441' : '#969a9f';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   if (tile) {
-    const colW = 16;
-    const tileH = 20;
-    const cols = 256 / colW;
-    const rows = 256 / tileH + 1;
-    const tones = ['#a45534', '#b0613d', '#8e482b', '#ba6b44', '#974d30', '#a65a38'];
+    const colW = 24;
+    const tileH = 26;
+    const cols = Math.ceil(256 / colW);
+    const rows = Math.ceil(256 / tileH) + 1;
+    const tones = ['#c36943', '#cf744b', '#b15c38', '#d77d53', '#bc633e'];
     for (let col = 0; col < cols; col += 1) {
       const x = col * colW;
       for (let row = -1; row < rows; row += 1) {
         const y = row * tileH;
         const seed = (col * 37 + row * 19 + 71) % tones.length;
-        ctx.fillStyle = tones[seed] ?? '#9e5334';
+        ctx.fillStyle = tones[seed] ?? '#c36943';
         ctx.fillRect(x + 1, y, colW - 2, tileH);
         const grad = ctx.createLinearGradient(x, y, x + colW, y);
-        grad.addColorStop(0, 'rgb(0 0 0 / 38%)');
-        grad.addColorStop(0.45, 'rgb(255 255 255 / 32%)');
-        grad.addColorStop(1, 'rgb(0 0 0 / 42%)');
+        grad.addColorStop(0, 'rgb(80 28 12 / 14%)');
+        grad.addColorStop(0.45, 'rgb(255 240 225 / 18%)');
+        grad.addColorStop(1, 'rgb(70 24 10 / 16%)');
         ctx.fillStyle = grad;
         ctx.fillRect(x + 1, y, colW - 2, tileH);
-        ctx.fillStyle = 'rgb(0 0 0 / 35%)';
-        ctx.fillRect(x, y + tileH - 2.5, colW, 2.5);
+        ctx.fillStyle = 'rgb(70 26 12 / 14%)';
+        ctx.fillRect(x, y + tileH - 2, colW, 2);
       }
     }
   } else {
-    ctx.strokeStyle = '#a4a29b';
-    ctx.lineWidth = 3;
-    for (let offset = 0; offset <= 256; offset += 32) {
+    ctx.strokeStyle = 'rgb(245 248 252 / 22%)';
+    ctx.lineWidth = 2;
+    for (let offset = 0; offset <= 256; offset += 64) {
       ctx.beginPath();
       ctx.moveTo(offset, 0);
       ctx.lineTo(offset, 256);
@@ -456,11 +459,6 @@ function drawRoof(tile: boolean): HTMLCanvasElement {
       ctx.moveTo(0, offset);
       ctx.lineTo(256, offset);
       ctx.stroke();
-    }
-    const next = seededSequence(411);
-    for (let i = 0; i < 600; i += 1) {
-      ctx.fillStyle = next() > 0.5 ? 'rgb(255 255 255 / 8%)' : 'rgb(40 40 40 / 8%)';
-      ctx.fillRect(next() * 256, next() * 256, 2, 2);
     }
   }
   return canvas;

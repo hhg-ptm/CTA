@@ -44,7 +44,7 @@ export function createRoadMaterials(): Map<RoadSurfaceStyle, THREE.MeshStandardM
 }
 
 export function createRoadPropMaterial(kind: string): THREE.MeshStandardMaterial {
-  if (kind === 'street_lamp') {
+  if (kind === 'street_lamp' || kind === 'street_lamp_modern') {
     return new THREE.MeshStandardMaterial({
       color: '#26292b',
       roughness: 0.6,
@@ -53,8 +53,22 @@ export function createRoadPropMaterial(kind: string): THREE.MeshStandardMaterial
       emissiveIntensity: 0.25,
     });
   }
-  const color = kind === 'traffic_signals' ? '#34443d' : kind === 'stop' ? '#ab443b' : '#d8d1bb';
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.12 });
+  const colors: Record<string, string> = {
+    traffic_signals: '#34443d',
+    stop: '#ab443b',
+    give_way: '#d8d1bb',
+    bus_shelter: '#3b648f',
+    bench: '#7a5232',
+    waste_basket: '#333940',
+    fountain: '#a89f8d',
+    shrub: '#3d7434',
+    hedge: '#29572a',
+  };
+  return new THREE.MeshStandardMaterial({
+    color: colors[kind] ?? '#d8d1bb',
+    roughness: 0.8,
+    metalness: 0.12,
+  });
 }
 
 function makeRoadTexture(style: Exclude<RoadSurfaceStyle, 'marking'>): THREE.CanvasTexture {

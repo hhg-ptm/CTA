@@ -14,9 +14,26 @@ export interface ChunkEntry {
   readonly featureCount: number;
 }
 
+export type BuildingPipelineMode = 'procedural' | 'blender-library';
+
+export type BlenderModelKey =
+  | '01_casco_house'
+  | '02_modern_residential'
+  | '02b_modern_setback'
+  | '03_chalet'
+  | '04_commercial'
+  | '05_extremadura_traditional'
+  | '05b_lowrise_village'
+  | '06_casco_palace'
+  | '07_midrise_residential'
+  | '07b_midrise_gabled'
+  | '07c_midrise_attic'
+  | '08_civic_equipment';
+
 export interface WorldManifest {
   readonly schemaVersion: number;
   readonly region: string;
+  readonly buildingPipeline?: BuildingPipelineMode;
   readonly extentMeters: number;
   readonly chunkMeters: number;
   readonly roadNetwork?: {
@@ -35,6 +52,44 @@ export interface WorldManifest {
     readonly segments: number;
   };
   readonly chunks: readonly ChunkEntry[];
+}
+
+export interface BuildingPartVolume {
+  readonly pts: readonly (readonly [number, number])[];
+  readonly floors?: number | null;
+  readonly heightMeters?: number | null;
+}
+
+export type TreeSpeciesKind = 'deciduous' | 'oak' | 'pine' | 'palm' | 'cypress';
+
+export type DetailBudgetProfile = '600k' | '1200k' | '2000k';
+
+export type ShadowLodProfile = 'wide' | 'balanced' | 'proxy';
+
+export type DistrictKind =
+  | 'casco'
+  | 'canovas_centro'
+  | 'residencial'
+  | 'nuevo_caceres'
+  | 'mejostilla'
+  | 'chalets'
+  | 'comercial'
+  | 'industrial'
+  | 'aldea_moret'
+  | 'campus'
+  | 'periferia';
+
+export interface BlenderBuildingPlacement {
+  readonly buildingId: string;
+  readonly modelKey: BlenderModelKey;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly heading: number;
+  readonly scaleX: number;
+  readonly scaleY: number;
+  readonly scaleZ: number;
+  readonly tint?: number;
 }
 
 export interface ChunkFeature {
@@ -64,6 +119,7 @@ export interface ChunkFeature {
   readonly heightMeters?: number | null;
   readonly visualFloors?: number;
   readonly visualHeightMeters?: number;
+  readonly heightOrigin?: 'osm_explicit' | 'catastro_floors' | 'estimated' | 'unknown';
   readonly roofHeightMeters?: number | null;
   readonly roofShape?: string;
   readonly roofMaterial?: 'tile' | 'modern';
@@ -72,13 +128,20 @@ export interface ChunkFeature {
   readonly buildingType?: string;
   readonly historic?: string;
   readonly zone?: 'casco' | 'ensanche' | 'periferia';
+  readonly district?: DistrictKind;
   readonly commercial?: boolean;
   readonly commercialCategory?: string;
+  readonly catastroUse?: string;
+  readonly catastroEra?: string;
+  readonly innerRings?: readonly (readonly (readonly [number, number])[])[];
+  readonly parts?: readonly BuildingPartVolume[];
+  readonly portalPoints?: readonly (readonly [number, number])[];
   readonly category?: string;
   readonly fictional?: boolean;
   readonly landmarkModelPath?: string;
   readonly directionDegrees?: number | null;
   readonly trafficSign?: string;
+  readonly treeSpecies?: TreeSpeciesKind;
   readonly points?: readonly (readonly [number, number])[];
   readonly position?: readonly [number, number];
 }
@@ -162,6 +225,7 @@ export type BuildingDetailKind =
   | 'window_casco'
   | 'window_ensanche'
   | 'window_modern'
+  | 'window_awning'
   | 'portal_casco'
   | 'portal_modern'
   | 'shopfront_awning'
@@ -171,6 +235,7 @@ export type BuildingDetailKind =
   | 'dormer_roof'
   | 'rooftop_penthouse'
   | 'rooftop_hvac'
+  | 'rooftop_solar'
   | 'bell_gable'
   | 'corner_turret'
   | 'heraldic_crest';
@@ -191,6 +256,7 @@ export interface BuiltBuildingChunk {
   readonly roofAnchors: readonly BuildingRoofAnchor[];
   readonly detailBatches?: readonly BuildingDetailBatch[];
   readonly landmarkModels: readonly LandmarkModelInstance[];
+  readonly blenderPlacements?: readonly BlenderBuildingPlacement[];
   readonly storks: readonly StorkInstance[];
   readonly footprints: readonly (readonly (readonly [number, number])[])[];
 }
@@ -204,8 +270,27 @@ export interface RoadSurfaceGeometry {
   readonly indices: Uint32Array;
 }
 
+export type RoadPropKind =
+  | 'traffic_signals'
+  | 'stop'
+  | 'give_way'
+  | 'street_lamp'
+  | 'street_lamp_modern'
+  | 'tree'
+  | 'tree_deciduous'
+  | 'tree_oak'
+  | 'tree_pine'
+  | 'tree_palm'
+  | 'tree_cypress'
+  | 'shrub'
+  | 'hedge'
+  | 'bus_shelter'
+  | 'bench'
+  | 'waste_basket'
+  | 'fountain';
+
 export interface RoadPropBatch {
-  readonly kind: 'traffic_signals' | 'stop' | 'give_way' | 'street_lamp' | 'tree';
+  readonly kind: RoadPropKind;
   readonly positions: Float32Array;
   readonly headings: Float32Array;
 }

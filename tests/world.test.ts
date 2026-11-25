@@ -52,9 +52,9 @@ describe('terrain meshes', () => {
     const centerColorOffset = (2 * 5 + 2) * 3;
     const centerColor =
       chunk.levels[0]?.colors.slice(centerColorOffset, centerColorOffset + 3) ?? [];
-    expect(centerColor[0]).toBeCloseTo(0.54, 6);
-    expect(centerColor[1]).toBeCloseTo(0.497, 6);
-    expect(centerColor[2]).toBeCloseTo(0.414, 6);
+    expect(centerColor[0]).toBeCloseTo(0.59, 6);
+    expect(centerColor[1]).toBeCloseTo(0.547, 6);
+    expect(centerColor[2]).toBeCloseTo(0.454, 6);
     expect(classifyGround('water', 'water', '')).toBe('water');
     expect(classifyGround('natural', 'bare_rock', '')).toBe('rock');
     expect(classifyGround('surface', 'paving', 'paving_stones')).toBe('stone');

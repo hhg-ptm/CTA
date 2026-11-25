@@ -92,10 +92,28 @@ function createTreeFoliageGeometry(): THREE.BufferGeometry {
 }
 
 function propGeometry(kind: BuiltRoadChunk['props'][number]['kind']): THREE.BufferGeometry {
-  if (kind === 'street_lamp') return createStreetLampGeometry();
+  if (kind === 'street_lamp' || kind === 'street_lamp_modern') return createStreetLampGeometry();
   if (kind === 'traffic_signals') {
     const geometry = new THREE.BoxGeometry(0.22, 2.8, 0.2);
     geometry.translate(0, 1.4, 0);
+    return geometry;
+  }
+  if (kind === 'bus_shelter') {
+    const geometry = new THREE.BoxGeometry(2.8, 2.3, 1.2);
+    geometry.translate(0, 1.15, 0);
+    return geometry;
+  }
+  if (kind === 'bench' || kind === 'hedge' || kind === 'shrub' || kind === 'fountain') {
+    const geometry =
+      kind === 'fountain'
+        ? new THREE.CylinderGeometry(1.2, 1.3, 0.6, 8)
+        : new THREE.BoxGeometry(1.4, 0.6, 0.5);
+    geometry.translate(0, 0.3, 0);
+    return geometry;
+  }
+  if (kind === 'waste_basket') {
+    const geometry = new THREE.CylinderGeometry(0.2, 0.2, 0.85, 6);
+    geometry.translate(0, 0.42, 0);
     return geometry;
   }
   const shape = new THREE.Shape();
@@ -124,10 +142,20 @@ function propGeometry(kind: BuiltRoadChunk['props'][number]['kind']): THREE.Buff
 export class RoadRenderer {
   private readonly roadMaterials = createRoadMaterials();
   private readonly propMaterials = new Map(
-    ['traffic_signals', 'stop', 'give_way', 'street_lamp', 'tree'].map((kind) => [
-      kind,
-      createRoadPropMaterial(kind),
-    ]),
+    [
+      'traffic_signals',
+      'stop',
+      'give_way',
+      'street_lamp',
+      'street_lamp_modern',
+      'tree',
+      'shrub',
+      'hedge',
+      'bus_shelter',
+      'bench',
+      'waste_basket',
+      'fountain',
+    ].map((kind) => [kind, createRoadPropMaterial(kind)]),
   );
   private readonly materials = new Map([...this.roadMaterials, ...this.propMaterials]);
 
@@ -157,7 +185,7 @@ export class RoadRenderer {
       const scale = new THREE.Vector3(1, 1, 1);
       for (const batch of roads.props) {
         if (batch.positions.length < 3) continue;
-        if (batch.kind === 'tree') {
+        if (batch.kind.startsWith('tree')) {
           const count = batch.positions.length / 3;
           // Lush Mediterranean tree (holm oak / stone pine style)
           const trunkGeo = createTreeTrunkGeometry();
