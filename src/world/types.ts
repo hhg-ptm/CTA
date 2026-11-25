@@ -364,3 +364,5 @@ export interface RoadNetwork {
   readonly connections: readonly RoadNetworkConnection[];
   readonly intersections: readonly string[];
 }
+
+export type * from './geo-contracts';

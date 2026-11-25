@@ -227,6 +227,78 @@ for (const zone of Object.keys(buildingZoneCounts)) {
   if (manifest.counts?.buildingsInWorldByZone?.[zone] !== buildingZoneCounts[zone])
     throw new Error(`Building count mismatch for zone ${zone}.`);
 }
+const portalsDataPath = path.join(ROOT, 'public/data/world/portals.json');
+const busStopsDataPath = path.join(ROOT, 'public/data/world/bus-stops.json');
+
+if (regionName === 'cc-monumental') {
+  try {
+    const portalsRaw = await readFile(portalsDataPath, 'utf8');
+    const portalsDoc = JSON.parse(portalsRaw);
+    if (
+      portalsDoc.schemaVersion !== 1 ||
+      !Array.isArray(portalsDoc.portals) ||
+      portalsDoc.portals.length !== portalsDoc.count
+    ) {
+      throw new Error('Portals catalog metadata is malformed.');
+    }
+    for (const p of portalsDoc.portals) {
+      if (
+        !Number.isFinite(p.x) ||
+        !Number.isFinite(p.y) ||
+        !Number.isFinite(p.z) ||
+        Math.abs(p.x) > manifest.extentMeters / 2 + 50 ||
+        Math.abs(p.z) > manifest.extentMeters / 2 + 50 ||
+        p.y < 200 ||
+        p.y > 900
+      ) {
+        throw new Error(`Portal ${p.id} has invalid coordinates or elevation.`);
+      }
+      if (/ES\.SDGC\.|[0-9]{7}[A-Z]{2}[0-9]{4}[A-Z]/i.test(`${p.id} ${p.street}`)) {
+        throw new Error(`Portal ${p.id} leaked a raw cadastral identifier.`);
+      }
+    }
+  } catch (err) {
+    if (err?.code !== 'ENOENT') throw err;
+  }
+
+  try {
+    const stopsRaw = await readFile(busStopsDataPath, 'utf8');
+    const stopsDoc = JSON.parse(stopsRaw);
+    if (
+      stopsDoc.schemaVersion !== 1 ||
+      !Array.isArray(stopsDoc.stops) ||
+      stopsDoc.stops.length !== stopsDoc.count
+    ) {
+      throw new Error('Bus stops catalog metadata is malformed.');
+    }
+    for (const s of stopsDoc.stops) {
+      if (
+        !Number.isFinite(s.x) ||
+        !Number.isFinite(s.y) ||
+        !Number.isFinite(s.z) ||
+        !Number.isFinite(s.heading) ||
+        s.y < 200 ||
+        s.y > 900
+      ) {
+        throw new Error(`Bus stop ${s.id} has invalid spatial coordinates.`);
+      }
+      const lowerName = String(s.name ?? '').toLocaleLowerCase('es');
+      if (
+        forbidden.some((alias) =>
+          new RegExp(
+            `(^|[^a-záéíóúñü])${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-záéíóúñü]|$)`,
+            'i',
+          ).test(lowerName),
+        )
+      ) {
+        throw new Error(`Blocklisted commercial name leaked into bus stop ${s.id}: ${s.name}`);
+      }
+    }
+  } catch (err) {
+    if (err?.code !== 'ENOENT') throw err;
+  }
+}
+
 console.info(
   `Verified ${manifest.chunks.length} chunks, ${totalFeatures} feature records, ${buildingsById.size} zoned buildings, road network, walking route and all hashes/terrain samples; no blocklisted names.`,
 );
