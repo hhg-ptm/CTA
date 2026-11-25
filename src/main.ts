@@ -302,6 +302,8 @@ let maximumFrameMs = 0;
 let lastStatsUpdate = frameWindowStart;
 let physicsQueryMs = 0;
 let actorUpdateMs = 0;
+let cameraOcclusionMs = 0;
+let npcAiMs = 0;
 let streamingUpdateMs = 0;
 let shadowRenderMs = 0;
 let mainRenderMs = 0;
@@ -315,6 +317,7 @@ let bustCooldownUntil = 0;
 let recklessSeconds = 0;
 let focusInitialized = false;
 const previousFocus = new THREE.Vector3();
+const camFallbackDir = new THREE.Vector3();
 
 interface DebugSnapshot {
   readonly position: { readonly x: number; readonly y: number; readonly z: number };
@@ -332,6 +335,8 @@ interface DebugSnapshot {
   readonly systemTimesMs: {
     readonly physicsQuery: number;
     readonly actorUpdate: number;
+    readonly cameraOcclusion: number;
+    readonly npcAi: number;
     readonly streamingUpdate: number;
     readonly render: number;
   };
@@ -401,6 +406,8 @@ function debugSnapshot(): DebugSnapshot {
     systemTimesMs: {
       physicsQuery: physicsQueryMs,
       actorUpdate: actorUpdateMs,
+      cameraOcclusion: cameraOcclusionMs,
+      npcAi: npcAiMs,
       streamingUpdate: streamingUpdateMs,
       render: renderUpdateMs,
     },
@@ -609,24 +616,27 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
       ((driveInput.left || driveInput.right) && activeVehicle.speed > 9);
     audio.updateSkid(isSkidding);
     audio.setHorn(hornPressed);
+    if (debugMode) actorUpdateMs = performance.now() - systemStart;
+    const camStart = debugMode ? performance.now() : 0;
     cameraRig.mode = 'thirdPerson';
     cameraRig.setSpeedFov(activeVehicle.speed);
     cameraRig.update(frameSeconds, activeVehicle.position);
     const vh = chunks?.groundHeightAt(camera.position.x, camera.position.z);
     if (vh !== undefined && camera.position.y < vh + 0.5) camera.position.y = vh + 0.5;
     if (chunks?.collidesWithBuilding(camera.position.x, camera.position.z, 0)) {
-      const dir = camera.position.clone().sub(activeVehicle.position);
-      const dist = dir.length();
+      camFallbackDir.copy(camera.position).sub(activeVehicle.position);
+      const dist = camFallbackDir.length();
       if (dist > 0.1) {
-        dir.normalize();
+        camFallbackDir.normalize();
         for (let i = 0; i < 8; i += 1) {
           camera.position
             .copy(activeVehicle.position)
-            .addScaledVector(dir, dist * (1 - (i + 1) / 9));
+            .addScaledVector(camFallbackDir, dist * (1 - (i + 1) / 9));
           if (!chunks.collidesWithBuilding(camera.position.x, camera.position.z, 0)) break;
         }
       }
     }
+    if (debugMode) cameraOcclusionMs = performance.now() - camStart;
   } else if (cameraRig.mode === 'thirdPerson') {
     cameraRig.resetFov();
     audio.updateVehicleEngine(false, 0, false);
@@ -640,33 +650,40 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
       npcs?.resolveCollision(character.position, 0.35);
       police?.resolveCollision(character.position, 0.35);
     }
+    if (debugMode) actorUpdateMs = performance.now() - systemStart;
+    const camStart = debugMode ? performance.now() : 0;
     cameraRig.update(frameSeconds, character.position);
     const ch = chunks?.groundHeightAt(camera.position.x, camera.position.z);
     if (ch !== undefined && camera.position.y < ch + 0.5) camera.position.y = ch + 0.5;
     // Safety: if the camera ended up inside a building footprint, pull it toward the character.
     if (chunks?.collidesWithBuilding(camera.position.x, camera.position.z, 0)) {
-      const dir = camera.position.clone().sub(character.position);
-      const dist = dir.length();
+      camFallbackDir.copy(camera.position).sub(character.position);
+      const dist = camFallbackDir.length();
       if (dist > 0.1) {
-        dir.normalize();
+        camFallbackDir.normalize();
         for (let i = 0; i < 8; i += 1) {
-          camera.position.copy(character.position).addScaledVector(dir, dist * (1 - (i + 1) / 9));
+          camera.position
+            .copy(character.position)
+            .addScaledVector(camFallbackDir, dist * (1 - (i + 1) / 9));
           if (!chunks.collidesWithBuilding(camera.position.x, camera.position.z, 0)) break;
         }
       }
       const ch2 = chunks.groundHeightAt(camera.position.x, camera.position.z);
       if (ch2 !== undefined && camera.position.y < ch2 + 0.5) camera.position.y = ch2 + 0.5;
     }
+    if (debugMode) cameraOcclusionMs = performance.now() - camStart;
   } else {
     audio.updateVehicleEngine(false, 0, false);
     audio.updateSkid(false);
     audio.setHorn(false);
+    if (debugMode) actorUpdateMs = performance.now() - systemStart;
+    const camStart = debugMode ? performance.now() : 0;
     cameraRig.update(frameSeconds);
     character.position.copy(camera.position);
     const characterGround = chunks?.groundHeightAt(character.position.x, character.position.z);
     if (characterGround !== undefined) character.position.y = characterGround;
+    if (debugMode) cameraOcclusionMs = performance.now() - camStart;
   }
-  if (debugMode) actorUpdateMs = performance.now() - systemStart;
   if (cameraRig.mode === 'free' && !noclipEnabled) {
     camera.position.x = THREE.MathUtils.clamp(camera.position.x, -500, 500);
     camera.position.z = THREE.MathUtils.clamp(camera.position.z, -500, 500);
@@ -691,6 +708,7 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
   );
   sunCorona.position.copy(sunDisk.position);
 
+  const aiStart = debugMode ? performance.now() : 0;
   if (npcs && chunks) npcs.update(frameSeconds, focus, camera, chunks);
   if (police && chunks) {
     police.update(frameSeconds, crime.stars, focus, camera, chunks);
@@ -702,6 +720,7 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
   }
   previousStars = crime.stars;
   audio.updatePoliceSiren(crime.stars, police ? police.nearestDistance(focus) : 999);
+  if (debugMode) npcAiMs = performance.now() - aiStart;
 
   if (
     npcs &&
@@ -993,7 +1012,9 @@ window.addEventListener('pagehide', () => {
 
 const worldParam = query.get('world');
 const requestedWorld =
-  worldParam === 'cc-prototype' || worldParam === 'cc-blender-sector'
+  worldParam === 'cc-prototype' ||
+  worldParam === 'cc-blender-sector' ||
+  worldParam === 'cc-blender-staging'
     ? worldParam
     : 'cc-monumental';
 const buildingPipelineParam = query.get('buildings') === 'blender' ? 'blender-library' : undefined;

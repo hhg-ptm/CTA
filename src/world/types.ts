@@ -26,18 +26,6 @@ export type BlenderModelKey =
   | '07_midrise_residential'
   | '08_civic_equipment';
 
-export interface BlenderBuildingPlacement {
-  readonly buildingId: string;
-  readonly modelKey: BlenderModelKey;
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-  readonly heading: number;
-  readonly scaleX: number;
-  readonly scaleY: number;
-  readonly scaleZ: number;
-}
-
 export interface WorldManifest {
   readonly schemaVersion: number;
   readonly region: string;
@@ -73,6 +61,32 @@ export type TreeSpeciesKind = 'deciduous' | 'oak' | 'pine' | 'palm' | 'cypress';
 export type DetailBudgetProfile = '600k' | '1200k' | '2000k';
 
 export type ShadowLodProfile = 'wide' | 'balanced' | 'proxy';
+
+export type DistrictKind =
+  | 'casco'
+  | 'canovas_centro'
+  | 'residencial'
+  | 'nuevo_caceres'
+  | 'mejostilla'
+  | 'chalets'
+  | 'comercial'
+  | 'industrial'
+  | 'aldea_moret'
+  | 'campus'
+  | 'periferia';
+
+export interface BlenderBuildingPlacement {
+  readonly buildingId: string;
+  readonly modelKey: BlenderModelKey;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly heading: number;
+  readonly scaleX: number;
+  readonly scaleY: number;
+  readonly scaleZ: number;
+  readonly tint?: number;
+}
 
 export interface ChunkFeature {
   readonly featureType: 'road' | 'pedestrian' | 'building' | 'surface' | 'prop' | 'poi';
@@ -110,6 +124,7 @@ export interface ChunkFeature {
   readonly buildingType?: string;
   readonly historic?: string;
   readonly zone?: 'casco' | 'ensanche' | 'periferia';
+  readonly district?: DistrictKind;
   readonly commercial?: boolean;
   readonly commercialCategory?: string;
   readonly catastroUse?: string;

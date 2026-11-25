@@ -17,6 +17,7 @@ import type {
   BlenderModelKey,
   BuiltTerrainChunk,
   ChunkFeature,
+  DistrictKind,
   ProjectedBounds,
 } from './types';
 
@@ -137,7 +138,82 @@ const DETACHED_HOUSE_TYPES = new Set([
   'farm',
 ]);
 
-const INDUSTRIAL_SKIP_TYPES = new Set(['industrial', 'warehouse', 'garages', 'shed']);
+const INDUSTRIAL_SKIP_TYPES = new Set(['roof', 'ruins', 'construction']);
+
+const INDUSTRIAL_BUILDING_TYPES = new Set([
+  'industrial',
+  'warehouse',
+  'manufacture',
+  'garages',
+  'shed',
+  'farm_auxiliary',
+  'service',
+  'storage_tank',
+]);
+
+const DISTRICT_TINT_PALETTES: Readonly<Record<DistrictKind, readonly number[]>> = {
+  casco: [0xffffff, 0xf7efe2, 0xf1e7d5, 0xfaf5ec],
+  canovas_centro: [0xffffff, 0xf6efe6, 0xeee8e0, 0xfbf7f0],
+  residencial: [0xffffff, 0xf4f2ee, 0xebeef2, 0xf9f1e8],
+  nuevo_caceres: [0xffffff, 0xf1f4f7, 0xf8f3eb, 0xeaeef3],
+  mejostilla: [0xffffff, 0xfbf5ec, 0xf0f4f1, 0xf4ede3],
+  chalets: [0xffffff, 0xfef5eb, 0xf1f6f2, 0xf8eee4],
+  comercial: [0xffffff, 0xf6f4f0, 0xedf2f6, 0xfbf5ec],
+  industrial: [0xcad3dc, 0xd8dce0, 0xbec7d0, 0xd4cfc6],
+  aldea_moret: [0xf5ede2, 0xebe3d7, 0xe2dbd0, 0xfaf4eb],
+  campus: [0xfaf6ee, 0xf0f4f7, 0xf3ede1, 0xffffff],
+  periferia: [0xffffff, 0xf6efe5, 0xedf1eb, 0xf9f4ec],
+};
+
+export function resolveDistrict(feature: ChunkFeature, cx: number, cz: number): DistrictKind {
+  if (feature.district) return feature.district;
+  const btype = (feature.buildingType ?? '').toLowerCase();
+  const use = feature.catastroUse ?? '';
+  const zone = feature.zone ?? 'ensanche';
+
+  if (zone === 'casco') return 'casco';
+  if (use === '3_industrial' || INDUSTRIAL_BUILDING_TYPES.has(btype)) return 'industrial';
+  if (
+    btype === 'university' ||
+    btype === 'college' ||
+    btype === 'hospital' ||
+    (cx >= 1800 && cz >= -200 && cz <= 1300)
+  ) {
+    return 'campus';
+  }
+  if (
+    feature.commercial ||
+    COMMERCIAL_BUILDING_TYPES.has(btype) ||
+    use === '4_2_retail' ||
+    use === '4_1_office'
+  ) {
+    return 'comercial';
+  }
+  if (zone === 'ensanche' && cx >= -900 && cx <= 700 && cz >= -850 && cz <= 700) {
+    return 'canovas_centro';
+  }
+  if (cz >= 850 && cx >= -950 && cx <= 1500) return 'mejostilla';
+  if (cx >= -1650 && cx <= 250 && cz >= -3200 && cz <= -1800) return 'aldea_moret';
+  if (cx >= -2300 && cx <= -900 && cz >= -1600 && cz <= -100) return 'nuevo_caceres';
+  if (DETACHED_HOUSE_TYPES.has(btype)) return 'chalets';
+  if (zone === 'ensanche') return 'residencial';
+  return 'periferia';
+}
+
+function pickDistrictTint(district: DistrictKind, seed: number): number {
+  const palette = DISTRICT_TINT_PALETTES[district];
+  return palette[Math.abs(seed) % palette.length] ?? 0xffffff;
+}
+
+function isIndustrialBuilding(feature: ChunkFeature, district: DistrictKind): boolean {
+  const btype = (feature.buildingType ?? '').toLowerCase();
+  return (
+    district === 'industrial' ||
+    feature.catastroUse === '3_industrial' ||
+    feature.catastroUse === '2_agriculture' ||
+    INDUSTRIAL_BUILDING_TYPES.has(btype)
+  );
+}
 
 function clamp(val: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, val));
@@ -210,18 +286,32 @@ export function selectBlenderArchetype(
   area: number,
   floors: number,
   heightMeters: number,
+  districtOverride?: DistrictKind,
 ): BlenderModelKey {
   const btype = (feature.buildingType ?? '').toLowerCase();
   const use = feature.catastroUse ?? '';
   const historic = (feature.historic ?? '').toLowerCase();
   const zone = feature.zone ?? 'ensanche';
+  const district =
+    districtOverride ??
+    feature.district ??
+    (zone === 'casco' ? 'casco' : zone === 'periferia' ? 'periferia' : 'residencial');
   const hash = stableBuildingHash(feature.id ?? `${area.toFixed(1)}_${floors}`);
 
+  if (isIndustrialBuilding(feature, district)) {
+    if (area >= 480) return '08_civic_equipment';
+    if (btype === 'farm_auxiliary' || use === '2_agriculture' || (area <= 150 && hash % 4 === 0)) {
+      return '05_extremadura_traditional';
+    }
+    return '04_commercial';
+  }
+
   if (CIVIC_USE_TAGS.has(use) || CIVIC_BUILDING_TYPES.has(btype)) {
+    if (district === 'campus' && floors >= 5 && area >= 550) return '02_modern_residential';
     return '08_civic_equipment';
   }
 
-  if (zone === 'casco') {
+  if (district === 'casco' || zone === 'casco') {
     if (
       historic === 'palace' ||
       historic === 'manor' ||
@@ -233,7 +323,7 @@ export function selectBlenderArchetype(
     ) {
       return '06_casco_palace';
     }
-    if (feature.commercial || COMMERCIAL_BUILDING_TYPES.has(btype)) {
+    if (feature.commercial || COMMERCIAL_BUILDING_TYPES.has(btype) || use === '4_2_retail') {
       return '04_commercial';
     }
     if (floors <= 2 && (btype === 'house' || btype === 'farm' || hash % 3 === 0)) {
@@ -242,36 +332,70 @@ export function selectBlenderArchetype(
     return '01_casco_house';
   }
 
-  if (zone === 'periferia') {
-    if (feature.commercial || COMMERCIAL_BUILDING_TYPES.has(btype)) {
-      return '04_commercial';
-    }
-    if (DETACHED_HOUSE_TYPES.has(btype) || (floors <= 2 && area <= 260)) {
-      return hash % 3 === 0 ? '05_extremadura_traditional' : '03_chalet';
-    }
-    if (floors >= 5 || heightMeters >= 15.5) {
-      return '02_modern_residential';
-    }
-    if (floors >= 3) {
+  if (district === 'campus') {
+    if (floors >= 4 || heightMeters >= 15) return '02_modern_residential';
+    if (area >= 260) return '08_civic_equipment';
+    return hash % 2 === 0 ? '07_midrise_residential' : '04_commercial';
+  }
+
+  if (
+    feature.commercial ||
+    COMMERCIAL_BUILDING_TYPES.has(btype) ||
+    use === '4_2_retail' ||
+    use === '4_1_office'
+  ) {
+    return floors >= 5 ? '02_modern_residential' : '04_commercial';
+  }
+
+  if (district === 'aldea_moret') {
+    if (floors >= 4) return '07_midrise_residential';
+    return hash % 3 === 0 ? '01_casco_house' : '05_extremadura_traditional';
+  }
+
+  if (district === 'mejostilla') {
+    if (floors >= 5 || heightMeters >= 15.8) return '02_modern_residential';
+    if (floors >= 3 || btype === 'apartments' || btype === 'residential')
       return '07_midrise_residential';
-    }
+    if (btype === 'terrace')
+      return hash % 2 === 0 ? '01_casco_house' : '05_extremadura_traditional';
     return hash % 2 === 0 ? '03_chalet' : '05_extremadura_traditional';
   }
 
-  // Ensanche / central modern urban districts
-  if ((feature.commercial || COMMERCIAL_BUILDING_TYPES.has(btype)) && floors <= 4) {
-    return '04_commercial';
+  if (district === 'chalets' || zone === 'periferia') {
+    if (DETACHED_HOUSE_TYPES.has(btype) || (floors <= 2 && area <= 280)) {
+      return hash % 3 === 0 ? '05_extremadura_traditional' : '03_chalet';
+    }
+    if (floors >= 5 || heightMeters >= 15.5) return '02_modern_residential';
+    if (floors >= 3) return '07_midrise_residential';
+    return hash % 2 === 0 ? '03_chalet' : '05_extremadura_traditional';
   }
+
+  // Cánovas/Centro, Nuevo Cáceres, and Residencial
   if (floors >= 5 || heightMeters >= 15.8 || btype === 'office' || btype === 'hotel') {
     return '02_modern_residential';
   }
   if (DETACHED_HOUSE_TYPES.has(btype) && floors <= 2 && area <= 170) {
     return hash % 2 === 0 ? '05_extremadura_traditional' : '01_casco_house';
   }
+  if (district === 'canovas_centro' && floors === 3 && hash % 5 === 0) {
+    return '04_commercial';
+  }
   return '07_midrise_residential';
 }
 
-function chooseSiblingVariant(baseKey: BlenderModelKey, slotHash: number): BlenderModelKey {
+function chooseSiblingVariant(
+  baseKey: BlenderModelKey,
+  slotHash: number,
+  district: DistrictKind,
+  industrial: boolean,
+): BlenderModelKey {
+  if (industrial) {
+    return slotHash % 4 === 0 && baseKey === '04_commercial' ? '08_civic_equipment' : baseKey;
+  }
+  if (district === 'campus') {
+    if (baseKey === '08_civic_equipment' && slotHash % 3 === 0) return '07_midrise_residential';
+    return baseKey;
+  }
   if (baseKey === '01_casco_house' || baseKey === '05_extremadura_traditional') {
     return slotHash % 3 === 0 ? '05_extremadura_traditional' : '01_casco_house';
   }
@@ -279,6 +403,9 @@ function chooseSiblingVariant(baseKey: BlenderModelKey, slotHash: number): Blend
     return '04_commercial';
   }
   if (baseKey === '04_commercial' && slotHash % 3 === 0) {
+    return '07_midrise_residential';
+  }
+  if (baseKey === '02_modern_residential' && slotHash % 5 === 0) {
     return '07_midrise_residential';
   }
   return baseKey;
@@ -444,6 +571,8 @@ function emitFittedModulesAlongSpan(
   terrain: BuiltTerrainChunk,
   buildingId: string,
   baseKey: BlenderModelKey,
+  district: DistrictKind,
+  industrial: boolean,
   cx: number,
   cz: number,
   heading: number,
@@ -455,14 +584,23 @@ function emitFittedModulesAlongSpan(
   seed: number,
 ): void {
   const baseSpec = BLENDER_MODEL_SPECS[baseKey];
+  const allowMultiCivic =
+    baseKey === '08_civic_equipment' && (industrial || spanW > 22 || spanD > 20);
   const singleton =
-    baseKey === '08_civic_equipment' || baseKey === '06_casco_palace' || baseKey === '03_chalet';
+    baseKey === '06_casco_palace' ||
+    baseKey === '03_chalet' ||
+    (baseKey === '08_civic_equipment' && !allowMultiCivic);
+  const maxU = industrial || district === 'campus' ? 8 : 5;
+  const maxV = industrial || district === 'campus' ? 3 : 2;
   const countU = singleton
     ? 1
-    : Math.max(1, Math.min(4, Math.round(spanW / (baseSpec.nominalWidthMeters * 0.96))));
-  const countV = singleton || spanD <= baseSpec.nominalDepthMeters * 1.85 ? 1 : 2;
+    : Math.max(1, Math.min(maxU, Math.round(spanW / (baseSpec.nominalWidthMeters * 0.96))));
+  const countV = singleton
+    ? 1
+    : Math.max(1, Math.min(maxV, Math.round(spanD / (baseSpec.nominalDepthMeters * 1.15))));
   const modW = spanW / countU;
   const modD = spanD / countV;
+  const resolvedTargetH = industrial ? Math.min(targetH, 10.5) : targetH;
 
   for (let iu = 0; iu < countU; iu += 1) {
     for (let iv = 0; iv < countV; iv += 1) {
@@ -470,18 +608,25 @@ function emitFittedModulesAlongSpan(
       const isPrimaryStreetCorner = iu === 0 && iv === countV - 1;
       const modKey = isPrimaryStreetCorner
         ? baseKey
-        : chooseSiblingVariant(baseKey, seed + slotIdx * 17);
+        : chooseSiblingVariant(baseKey, seed + slotIdx * 17, district, industrial);
       const spec = BLENDER_MODEL_SPECS[modKey];
       const uOff = -spanW * 0.5 + modW * (iu + 0.5);
       const vOff = -spanD * 0.5 + modD * (iv + 0.5);
       const mx = cx + uDir[0] * uOff + vDir[0] * vOff;
       const mz = cz + uDir[1] * uOff + vDir[1] * vOff;
-      // Front row (iv === countV - 1, +vOff) faces +vDir (outward street); back row (iv === 0, -vOff) faces -vDir outward.
-      const modHeading = countV > 1 && iv === 0 ? heading + Math.PI : heading;
+      // Industrial sheds flip 04_commercial so corrugated loading shutters & service doors face outward toward streets.
+      const baseHeading = countV > 1 && iv === 0 ? heading + Math.PI : heading;
+      const modHeading =
+        industrial && modKey === '04_commercial' ? baseHeading + Math.PI : baseHeading;
       const heightJitter = 1.0 + (((seed + slotIdx * 13) % 9) - 4) * 0.015;
-      const fitW = countU > 1 ? modW * 0.94 : modW;
-      const fitD = countV > 1 ? modD * 0.94 : modD;
-      const scales = computeProportionallySafeScales(fitW, fitD, targetH * heightJitter, spec);
+      const fitW = countU > 1 ? modW * 0.95 : modW;
+      const fitD = countV > 1 ? modD * 0.95 : modD;
+      const scales = computeProportionallySafeScales(
+        fitW,
+        fitD,
+        resolvedTargetH * heightJitter,
+        spec,
+      );
       const y = minFootprintGround(terrain, mx, mz, uDir, vDir, modW * 0.5, modD * 0.5);
       out.push({
         buildingId: `${buildingId}#m${slotIdx}`,
@@ -491,6 +636,7 @@ function emitFittedModulesAlongSpan(
         z: mz,
         heading: modHeading,
         ...scales,
+        tint: pickDistrictTint(district, seed + slotIdx * 29),
       });
     }
   }
@@ -564,7 +710,9 @@ export function buildBlenderGeoPlacements(
     const { floors, heightMeters } = resolvedTargetHeight(feature);
     const id = feature.id ?? `${cx.toFixed(1)}_${cz.toFixed(1)}`;
     const seed = stableBuildingHash(id);
-    const baseKey = selectBlenderArchetype(feature, area, floors, heightMeters);
+    const district = resolveDistrict(feature, cx, cz);
+    const industrial = isIndustrialBuilding(feature, district);
+    const baseKey = selectBlenderArchetype(feature, area, floors, heightMeters, district);
 
     // 1. Preserve genuine inner courtyards ("patios interiores") by framing around the hole bounds
     if (
@@ -641,7 +789,11 @@ export function buildBlenderGeoPlacements(
             placements,
             terrain,
             `${id}_w${wIdx}`,
-            wIdx === 0 ? baseKey : chooseSiblingVariant(baseKey, seed + wIdx * 7),
+            wIdx === 0
+              ? baseKey
+              : chooseSiblingVariant(baseKey, seed + wIdx * 7, district, industrial),
+            district,
+            industrial,
             wCx,
             wCz,
             wd.heading,
@@ -678,12 +830,14 @@ export function buildBlenderGeoPlacements(
         );
         const pFloors = part.floors ?? floors;
         const pHeight = part.heightMeters ?? (pFloors > 0 ? pFloors * 3.15 + 1.4 : heightMeters);
-        const pKey = selectBlenderArchetype(feature, pb.area, pFloors, pHeight);
+        const pKey = selectBlenderArchetype(feature, pb.area, pFloors, pHeight, district);
         emitFittedModulesAlongSpan(
           placements,
           terrain,
           `${id}_p${pIdx}`,
           pKey,
+          district,
+          industrial,
           pObb.obbCx,
           pObb.obbCz,
           pObb.heading,
@@ -705,6 +859,8 @@ export function buildBlenderGeoPlacements(
       terrain,
       id,
       baseKey,
+      district,
+      industrial,
       obb.obbCx,
       obb.obbCz,
       obb.heading,

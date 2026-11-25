@@ -25,6 +25,7 @@ import type {
   BuiltTerrainChunk,
   ChunkEntry,
   DetailBudgetProfile,
+  ProjectedBounds,
   ShadowLodProfile,
   TerrainChunkEvents,
   TerrainLodData,
@@ -74,12 +75,63 @@ export interface BlenderShadowStats {
 
 type ChunkState = 'queued' | 'loading' | 'loaded' | 'error';
 
+interface IndexedFootprint {
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minZ: number;
+  readonly maxZ: number;
+  readonly pts: readonly (readonly [number, number])[];
+}
+
+interface ChunkFootprintIndex {
+  readonly minX: number;
+  readonly minZ: number;
+  readonly cellMeters: number;
+  readonly gridDim: number;
+  readonly buckets: readonly IndexedFootprint[][];
+}
+
+function createFootprintIndex(
+  footprints: readonly (readonly (readonly [number, number])[])[],
+  bounds: ProjectedBounds,
+  cellMeters = 16,
+): ChunkFootprintIndex {
+  const span = Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ, cellMeters);
+  const gridDim = Math.max(1, Math.ceil(span / cellMeters));
+  const buckets: IndexedFootprint[][] = Array.from({ length: gridDim * gridDim }, () => []);
+  for (const pts of footprints) {
+    if (pts.length < 3) continue;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (const [px, pz] of pts) {
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (pz < minZ) minZ = pz;
+      if (pz > maxZ) maxZ = pz;
+    }
+    const entry: IndexedFootprint = { minX, maxX, minZ, maxZ, pts };
+    const cx0 = Math.max(0, Math.min(gridDim - 1, Math.floor((minX - bounds.minX) / cellMeters)));
+    const cx1 = Math.max(0, Math.min(gridDim - 1, Math.floor((maxX - bounds.minX) / cellMeters)));
+    const cz0 = Math.max(0, Math.min(gridDim - 1, Math.floor((minZ - bounds.minZ) / cellMeters)));
+    const cz1 = Math.max(0, Math.min(gridDim - 1, Math.floor((maxZ - bounds.minZ) / cellMeters)));
+    for (let gz = cz0; gz <= cz1; gz += 1) {
+      for (let gx = cx0; gx <= cx1; gx += 1) {
+        buckets[gz * gridDim + gx]?.push(entry);
+      }
+    }
+  }
+  return { minX: bounds.minX, minZ: bounds.minZ, cellMeters, gridDim, buckets };
+}
+
 interface ChunkRecord {
   readonly entry: ChunkEntry;
   state: ChunkState;
   distance: number;
   lod: number;
   result?: BuiltTerrainChunk;
+  footprintIndex?: ChunkFootprintIndex;
   meshes?: THREE.Mesh[];
   buildingMeshes?: THREE.Mesh[][];
   buildingDetailMeshes?: THREE.Mesh[][];
@@ -457,16 +509,70 @@ export class ChunkManager {
   }
 
   collidesWithBuilding(x: number, z: number, radius = 0.4): boolean {
+    const chunkMargin = Math.max(radius, 32);
     for (const record of this.records.values()) {
       if (record.state !== 'loaded' || !record.result?.buildings) continue;
+      const b = record.entry.bounds;
+      if (
+        x + chunkMargin < b.minX ||
+        x - chunkMargin > b.maxX ||
+        z + chunkMargin < b.minZ ||
+        z - chunkMargin > b.maxZ
+      ) {
+        continue;
+      }
+      const index = record.footprintIndex;
+      if (index) {
+        const cx0 = Math.max(
+          0,
+          Math.min(index.gridDim - 1, Math.floor((x - radius - index.minX) / index.cellMeters)),
+        );
+        const cx1 = Math.max(
+          0,
+          Math.min(index.gridDim - 1, Math.floor((x + radius - index.minX) / index.cellMeters)),
+        );
+        const cz0 = Math.max(
+          0,
+          Math.min(index.gridDim - 1, Math.floor((z - radius - index.minZ) / index.cellMeters)),
+        );
+        const cz1 = Math.max(
+          0,
+          Math.min(index.gridDim - 1, Math.floor((z + radius - index.minZ) / index.cellMeters)),
+        );
+        for (let gz = cz0; gz <= cz1; gz += 1) {
+          for (let gx = cx0; gx <= cx1; gx += 1) {
+            const list = index.buckets[gz * index.gridDim + gx];
+            if (!list) continue;
+            for (const poly of list) {
+              if (
+                x + radius < poly.minX ||
+                x - radius > poly.maxX ||
+                z + radius < poly.minZ ||
+                z - radius > poly.maxZ
+              ) {
+                continue;
+              }
+              const pts = poly.pts;
+              if (pointInPolygon(x, z, pts)) return true;
+              for (let i = 0; i < pts.length; i += 1) {
+                const a = pts[i];
+                const bPt = pts[(i + 1) % pts.length];
+                if (!a || !bPt) continue;
+                if (distancePointToSegment(x, z, a[0], a[1], bPt[0], bPt[1]) < radius) return true;
+              }
+            }
+          }
+        }
+        continue;
+      }
       for (const pts of record.result.buildings.footprints) {
         if (pts.length < 3) continue;
         if (pointInPolygon(x, z, pts)) return true;
         for (let i = 0; i < pts.length; i += 1) {
           const a = pts[i];
-          const b = pts[(i + 1) % pts.length];
-          if (!a || !b) continue;
-          if (distancePointToSegment(x, z, a[0], a[1], b[0], b[1]) < radius) return true;
+          const bPt = pts[(i + 1) % pts.length];
+          if (!a || !bPt) continue;
+          if (distancePointToSegment(x, z, a[0], a[1], bPt[0], bPt[1]) < radius) return true;
         }
       }
     }
@@ -856,6 +962,9 @@ export class ChunkManager {
         ? this.blenderBuildings.createChunkLod2Meshes(item.result.buildings)
         : [];
       record.result = item.result;
+      record.footprintIndex = item.result.buildings
+        ? createFootprintIndex(item.result.buildings.footprints, record.entry.bounds)
+        : undefined;
       if (item.result.roads)
         this.roadHeights.set(item.id, new RoadHeightIndex(item.result.roads, record.entry.bounds));
       record.meshes = meshes;

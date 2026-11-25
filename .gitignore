@@ -7,5 +7,6 @@ coverage/
 data/raw/**
 !data/raw/.gitkeep
 data/staging/**
+public/world/cc-blender-staging/**
 __pycache__/
 *.pyc

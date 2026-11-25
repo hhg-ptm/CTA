@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BLENDER_MODEL_SPECS,
   buildBlenderGeoPlacements,
+  resolveDistrict,
   selectBlenderArchetype,
 } from '../src/world/blender-geo-adapter';
 import { buildBuildingChunk } from '../src/world/building-builder';
@@ -325,5 +326,67 @@ describe('System B: Geographic adaptation onto Catastro & OSM footprints', () =>
     }
     const streetCornerHero = commModules.find((m) => m.z < 0 && m.modelKey === '04_commercial');
     expect(streetCornerHero).toBeDefined();
+  });
+
+  it('maps real Cáceres neighborhoods to districts, generates industrial sheds without skipping, and assigns deterministic tints', () => {
+    expect(resolveDistrict({ id: 'd1', featureType: 'building', zone: 'casco' }, 0, 0)).toBe(
+      'casco',
+    );
+    expect(
+      resolveDistrict(
+        { id: 'd2', featureType: 'building', zone: 'periferia', catastroUse: '3_industrial' },
+        350,
+        -2600,
+      ),
+    ).toBe('industrial');
+    expect(
+      resolveDistrict(
+        { id: 'd3', featureType: 'building', zone: 'periferia', buildingType: 'university' },
+        2450,
+        550,
+      ),
+    ).toBe('campus');
+    expect(
+      resolveDistrict({ id: 'd4', featureType: 'building', zone: 'ensanche' }, -500, -350),
+    ).toBe('canovas_centro');
+    expect(
+      resolveDistrict({ id: 'd5', featureType: 'building', zone: 'periferia' }, 320, 1300),
+    ).toBe('mejostilla');
+    expect(
+      resolveDistrict({ id: 'd6', featureType: 'building', zone: 'periferia' }, -1150, -2450),
+    ).toBe('aldea_moret');
+    expect(
+      resolveDistrict({ id: 'd7', featureType: 'building', zone: 'ensanche' }, -1550, -850),
+    ).toBe('nuevo_caceres');
+
+    const industrialFeature: ChunkFeature = {
+      id: 'ind_warehouse_1',
+      featureType: 'building',
+      zone: 'periferia',
+      district: 'industrial',
+      buildingType: 'warehouse',
+      catastroUse: '3_industrial',
+      visualFloors: 2,
+      visualHeightMeters: 16.0,
+      points: [
+        [-22, -14],
+        [22, -14],
+        [22, 14],
+        [-22, 14],
+        [-22, -14],
+      ],
+    };
+    const indGeo = buildBlenderGeoPlacements([industrialFeature], terrain, bounds);
+    expect(indGeo.placements.length).toBeGreaterThanOrEqual(4);
+    for (const p of indGeo.placements) {
+      expect(['04_commercial', '08_civic_equipment', '05_extremadura_traditional']).toContain(
+        p.modelKey,
+      );
+      expect(typeof p.tint).toBe('number');
+      // Industrial height is capped (<= 10.5m) * max scale jitter -> never skyscrapers
+      expect(p.scaleY * BLENDER_MODEL_SPECS[p.modelKey].nominalHeightMeters).toBeLessThanOrEqual(
+        16.5,
+      );
+    }
   });
 });

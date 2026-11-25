@@ -179,6 +179,53 @@ export class BlenderBuildingRenderer {
     return mat;
   }
 
+  private appendModelInstancedMeshes(
+    parts: readonly ModelPart[],
+    items: readonly BlenderBuildingPlacement[],
+    overrideMaterial: THREE.Material | null,
+    shadowOnlyLayer: boolean,
+    out: THREE.Mesh[],
+  ): void {
+    const matrix = new THREE.Matrix4();
+    const pos = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const tintColor = new THREE.Color();
+
+    for (const part of parts) {
+      part.geometry.userData.sharedGeometry = true;
+      const mat = overrideMaterial ?? part.material;
+      const useTint = !shadowOnlyLayer && !mat.transparent;
+      const mesh = new THREE.InstancedMesh(part.geometry, mat, items.length);
+      for (let i = 0; i < items.length; i += 1) {
+        const item = items[i];
+        if (!item) continue;
+        pos.set(item.x, item.y, item.z);
+        quat.setFromAxisAngle(yAxis, item.heading);
+        scale.set(item.scaleX, item.scaleY, item.scaleZ);
+        matrix.compose(pos, quat, scale);
+        mesh.setMatrixAt(i, matrix);
+        if (useTint) {
+          tintColor.setHex(item.tint ?? 0xffffff);
+          mesh.setColorAt(i, tintColor);
+        }
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      if (useTint && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.computeBoundingSphere();
+      mesh.castShadow = shadowOnlyLayer;
+      mesh.receiveShadow = !shadowOnlyLayer;
+      mesh.visible = false;
+      if (shadowOnlyLayer) {
+        mesh.layers.set(SHADOW_PROXY_LAYER);
+        mesh.matrixAutoUpdate = false;
+        mesh.updateMatrix();
+      }
+      out.push(mesh);
+    }
+  }
+
   /**
    * Partition a chunk's placed buildings into 3x3 spatial subcells (~85m each) so only
    * foreground blocks render LOD0 detail while mid-ground blocks can use lightweight LOD2
@@ -215,11 +262,6 @@ export class BlenderBuildingRenderer {
       buckets[qz * SUBCELL_DIVS + qx]?.push(p);
     }
 
-    const matrix = new THREE.Matrix4();
-    const pos = new THREE.Vector3();
-    const quat = new THREE.Quaternion();
-    const scale = new THREE.Vector3();
-    const yAxis = new THREE.Vector3(0, 1, 0);
     const proxyMaterial = this.getShadowProxyMaterial();
     const cells: BlenderQuadrantCell[] = [];
 
@@ -247,52 +289,13 @@ export class BlenderBuildingRenderer {
         const loaded = this.models.get(key);
         if (!loaded) continue;
 
-        const matrices: THREE.Matrix4[] = [];
-        for (let i = 0; i < items.length; i += 1) {
-          const item = items[i];
-          if (!item) continue;
-          pos.set(item.x, item.y, item.z);
-          quat.setFromAxisAngle(yAxis, item.heading);
-          scale.set(item.scaleX, item.scaleY, item.scaleZ);
-          matrix.compose(pos, quat, scale);
-          matrices.push(matrix.clone());
-        }
-
-        const buildInstances = (
-          parts: readonly ModelPart[],
-          overrideMaterial: THREE.Material | null,
-          shadowOnlyLayer: boolean,
-          out: THREE.Mesh[],
-        ): void => {
-          for (const part of parts) {
-            part.geometry.userData.sharedGeometry = true;
-            const mat = overrideMaterial ?? part.material;
-            const mesh = new THREE.InstancedMesh(part.geometry, mat, matrices.length);
-            for (let i = 0; i < matrices.length; i += 1) {
-              const m = matrices[i];
-              if (m) mesh.setMatrixAt(i, m);
-            }
-            mesh.instanceMatrix.needsUpdate = true;
-            mesh.computeBoundingSphere();
-            mesh.castShadow = shadowOnlyLayer;
-            mesh.receiveShadow = !shadowOnlyLayer;
-            mesh.visible = false;
-            if (shadowOnlyLayer) {
-              mesh.layers.set(SHADOW_PROXY_LAYER);
-              mesh.matrixAutoUpdate = false;
-              mesh.updateMatrix();
-            }
-            out.push(mesh);
-          }
-        };
-
-        buildInstances(loaded.lod0, null, false, lod0Meshes);
-        buildInstances(loaded.lod1, null, false, lod1Meshes);
-        buildInstances(loaded.lod2, null, false, lod2Meshes);
+        this.appendModelInstancedMeshes(loaded.lod0, items, null, false, lod0Meshes);
+        this.appendModelInstancedMeshes(loaded.lod1, items, null, false, lod1Meshes);
+        this.appendModelInstancedMeshes(loaded.lod2, items, null, false, lod2Meshes);
 
         const opaqueLod2 = loaded.lod2.filter((part) => !part.material.transparent);
         const proxyParts = opaqueLod2.length > 0 ? opaqueLod2 : loaded.lod2.slice(0, 1);
-        buildInstances(proxyParts, proxyMaterial, true, shadowProxies);
+        this.appendModelInstancedMeshes(proxyParts, items, proxyMaterial, true, shadowProxies);
       }
 
       cells.push({
@@ -325,35 +328,11 @@ export class BlenderBuildingRenderer {
       else byModel.set(p.modelKey, [p]);
     }
 
-    const matrix = new THREE.Matrix4();
-    const pos = new THREE.Vector3();
-    const quat = new THREE.Quaternion();
-    const scale = new THREE.Vector3();
-    const yAxis = new THREE.Vector3(0, 1, 0);
     const out: THREE.Mesh[] = [];
-
     for (const [key, items] of byModel) {
       const loaded = this.models.get(key);
       if (!loaded) continue;
-      for (const part of loaded.lod2) {
-        part.geometry.userData.sharedGeometry = true;
-        const mesh = new THREE.InstancedMesh(part.geometry, part.material, items.length);
-        for (let i = 0; i < items.length; i += 1) {
-          const item = items[i];
-          if (!item) continue;
-          pos.set(item.x, item.y, item.z);
-          quat.setFromAxisAngle(yAxis, item.heading);
-          scale.set(item.scaleX, item.scaleY, item.scaleZ);
-          matrix.compose(pos, quat, scale);
-          mesh.setMatrixAt(i, matrix);
-        }
-        mesh.instanceMatrix.needsUpdate = true;
-        mesh.computeBoundingSphere();
-        mesh.castShadow = false;
-        mesh.receiveShadow = true;
-        mesh.visible = false;
-        out.push(mesh);
-      }
+      this.appendModelInstancedMeshes(loaded.lod2, items, null, false, out);
     }
 
     return out;
