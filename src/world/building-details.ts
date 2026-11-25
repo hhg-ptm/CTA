@@ -195,11 +195,24 @@ export function computeExposedEdges(
   return exposed;
 }
 
+function roadClassPenalty(road: ChunkFeature): number {
+  const hw = (road.highway ?? '').toLowerCase();
+  if (!hw || hw === 'primary' || hw === 'secondary' || hw === 'tertiary' || hw === 'residential') {
+    return 0;
+  }
+  if (hw === 'unclassified' || hw === 'pedestrian' || hw === 'living_street') return 0.9;
+  if (hw === 'service' || hw === 'track' || hw === 'footway' || hw === 'path' || hw === 'steps') {
+    return 8.5;
+  }
+  return 2.0;
+}
+
 function roadProximity(point: RoadPoint, roads: readonly ChunkFeature[]): number {
   let best = Infinity;
   for (const road of roads) {
     const pts = road.points;
     if (!pts) continue;
+    const penalty = roadClassPenalty(road);
     for (let i = 1; i < pts.length; i += 1) {
       const a = pts[i - 1];
       const b = pts[i];
@@ -211,7 +224,7 @@ function roadProximity(point: RoadPoint, roads: readonly ChunkFeature[]): number
         l2 < 1e-6
           ? 0
           : Math.max(0, Math.min(1, ((point[0] - a[0]) * dx + (point[1] - a[1]) * dz) / l2));
-      const d = Math.hypot(point[0] - a[0] - dx * t, point[1] - a[1] - dz * t);
+      const d = Math.hypot(point[0] - a[0] - dx * t, point[1] - a[1] - dz * t) + penalty;
       if (d < best) best = d;
     }
   }

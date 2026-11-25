@@ -52,8 +52,8 @@ export const BLENDER_MODEL_SPECS: Readonly<Record<BlenderModelKey, BlenderNomina
   },
   '04_commercial': {
     key: '04_commercial',
-    nominalWidthMeters: 13.56,
-    nominalDepthMeters: 12.06,
+    nominalWidthMeters: 13.96,
+    nominalDepthMeters: 12.3,
     nominalHeightMeters: 12.46,
     floors: 3,
   },
@@ -467,13 +467,17 @@ function emitFittedModulesAlongSpan(
   for (let iu = 0; iu < countU; iu += 1) {
     for (let iv = 0; iv < countV; iv += 1) {
       const slotIdx = iu * countV + iv;
-      const modKey = slotIdx === 0 ? baseKey : chooseSiblingVariant(baseKey, seed + slotIdx * 17);
+      const isPrimaryStreetCorner = iu === 0 && iv === countV - 1;
+      const modKey = isPrimaryStreetCorner
+        ? baseKey
+        : chooseSiblingVariant(baseKey, seed + slotIdx * 17);
       const spec = BLENDER_MODEL_SPECS[modKey];
       const uOff = -spanW * 0.5 + modW * (iu + 0.5);
       const vOff = -spanD * 0.5 + modD * (iv + 0.5);
       const mx = cx + uDir[0] * uOff + vDir[0] * vOff;
       const mz = cz + uDir[1] * uOff + vDir[1] * vOff;
-      const modHeading = iv === 1 ? heading + Math.PI : heading;
+      // Front row (iv === countV - 1, +vOff) faces +vDir (outward street); back row (iv === 0, -vOff) faces -vDir outward.
+      const modHeading = countV > 1 && iv === 0 ? heading + Math.PI : heading;
       const heightJitter = 1.0 + (((seed + slotIdx * 13) % 9) - 4) * 0.015;
       const fitW = countU > 1 ? modW * 0.94 : modW;
       const fitD = countV > 1 ? modD * 0.94 : modD;

@@ -72,6 +72,8 @@ export type TreeSpeciesKind = 'deciduous' | 'oak' | 'pine' | 'palm' | 'cypress';
 
 export type DetailBudgetProfile = '600k' | '1200k' | '2000k';
 
+export type ShadowLodProfile = 'wide' | 'balanced' | 'proxy';
+
 export interface ChunkFeature {
   readonly featureType: 'road' | 'pedestrian' | 'building' | 'surface' | 'prop' | 'poi';
   readonly id?: string;

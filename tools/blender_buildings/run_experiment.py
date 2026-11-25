@@ -244,10 +244,14 @@ def main() -> None:
             "builder": build_hero_commercial,
             "export_kwargs": {},
             "render_new": False,
+            "render_refresh": True,
+            "render_rear": True,
             "persp_cam": (19.0, -23.0, 12.2),
             "persp_target": (-0.2, -1.2, 5.3),
             "street_cam": (8.6, -13.4, 1.9),
             "street_target": (-0.8, -2.0, 3.8),
+            "rear_cam": (-16.5, 19.5, 9.6),
+            "rear_target": (0.0, 0.8, 4.4),
             "stage_w": 38.0,
             "street_y": -6.8,
         },
@@ -377,6 +381,13 @@ def main() -> None:
             _point_camera_at(cam_obj, spec["street_target"])
             scene.render.filepath = str(out_dir / street_name)
             bpy.ops.render.render(write_still=True)
+
+            if spec.get("render_rear"):
+                cam_obj.location = spec["rear_cam"]
+                cam_data.lens = 36.0
+                _point_camera_at(cam_obj, spec["rear_target"])
+                scene.render.filepath = str(out_dir / f"{spec['key']}_trasera.png")
+                bpy.ops.render.render(write_still=True)
 
         telemetry.append({
             "key": spec["key"],

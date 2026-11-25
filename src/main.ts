@@ -7,13 +7,14 @@ import { Logger } from './engine/logger';
 import { QUALITY_PRESETS } from './engine/quality';
 import { t } from './i18n';
 import { AgentColliders } from './world/agent-colliders';
-import { ChunkManager } from './world/chunk-manager';
+import { SHADOW_PROXY_LAYER } from './world/blender-building-renderer';
+import { ChunkManager, type BlenderShadowStats } from './world/chunk-manager';
 import { Character } from './world/character';
 import { CrimeSystem } from './world/crime-system';
 import { NpcSystem } from './world/npc-system';
 import { PoliceSystem } from './world/police-system';
 import { RoadGraph } from './world/road-graph';
-import type { RoadNetwork } from './world/types';
+import type { RoadNetwork, ShadowLodProfile } from './world/types';
 import { Vehicle } from './world/vehicle';
 import { createPhysicsWorld } from './world/terrain-physics';
 import type { World } from '@dimforge/rapier3d-compat';
@@ -68,6 +69,87 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.14;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;
+
+interface DisjointTimerQueryExt {
+  readonly TIME_ELAPSED_EXT: number;
+  readonly GPU_DISJOINT_EXT: number;
+}
+interface PendingGpuQuery {
+  readonly kind: 'shadow' | 'main';
+  readonly query: WebGLQuery;
+}
+
+const rawGl = renderer.getContext();
+const gl2 =
+  typeof WebGL2RenderingContext !== 'undefined' && rawGl instanceof WebGL2RenderingContext
+    ? rawGl
+    : null;
+const timerExt = gl2
+  ? (gl2.getExtension('EXT_disjoint_timer_query_webgl2') as DisjointTimerQueryExt | null)
+  : null;
+const pendingGpuQueries: PendingGpuQuery[] = [];
+let gpuShadowMs: number | null = null;
+let gpuMainMs: number | null = null;
+
+function pollGpuQueries(): void {
+  if (!gl2 || !timerExt || pendingGpuQueries.length === 0) return;
+  const disjoint = Boolean(gl2.getParameter(timerExt.GPU_DISJOINT_EXT));
+  while (pendingGpuQueries.length > 0) {
+    const head = pendingGpuQueries[0];
+    if (!head) break;
+    const available = Boolean(gl2.getQueryParameter(head.query, gl2.QUERY_RESULT_AVAILABLE));
+    if (!available && !disjoint) break;
+    pendingGpuQueries.shift();
+    if (!disjoint && available) {
+      const ns = Number(gl2.getQueryParameter(head.query, gl2.QUERY_RESULT));
+      const ms = ns / 1_000_000;
+      if (head.kind === 'shadow') gpuShadowMs = ms;
+      else gpuMainMs = ms;
+    }
+    gl2.deleteQuery(head.query);
+  }
+}
+
+function beginGpuTimer(): WebGLQuery | null {
+  if (!gl2 || !timerExt || pendingGpuQueries.length >= 6) return null;
+  const query = gl2.createQuery();
+  if (!query) return null;
+  gl2.beginQuery(timerExt.TIME_ELAPSED_EXT, query);
+  return query;
+}
+
+function endGpuTimer(query: WebGLQuery | null, kind: 'shadow' | 'main'): void {
+  if (!gl2 || !timerExt || !query) return;
+  gl2.endQuery(timerExt.TIME_ELAPSED_EXT);
+  pendingGpuQueries.push({ kind, query });
+}
+
+const SHADOW_TRIGGER_LAYER = 2;
+const shadowDummyTarget = new THREE.WebGLRenderTarget(1, 1, {
+  depthBuffer: false,
+  stencilBuffer: false,
+});
+const shadowDriverCamera = new THREE.PerspectiveCamera(1, 1, 0.1, 1);
+shadowDriverCamera.layers.set(SHADOW_TRIGGER_LAYER);
+
+let runShadowCaptureOnTrigger = false;
+const shadowTriggerGeometry = new THREE.BufferGeometry();
+shadowTriggerGeometry.setAttribute(
+  'position',
+  new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3),
+);
+const shadowTriggerMaterial = new THREE.PointsMaterial({
+  size: 1,
+  colorWrite: false,
+  depthWrite: false,
+  depthTest: false,
+});
+const shadowTriggerPoints = new THREE.Points(shadowTriggerGeometry, shadowTriggerMaterial);
+shadowTriggerPoints.layers.set(SHADOW_TRIGGER_LAYER);
+shadowTriggerPoints.frustumCulled = false;
+shadowTriggerPoints.castShadow = false;
+shadowTriggerPoints.receiveShadow = false;
 const fogColor = '#c8d7df';
 renderer.setClearColor(fogColor);
 
@@ -221,7 +303,13 @@ let lastStatsUpdate = frameWindowStart;
 let physicsQueryMs = 0;
 let actorUpdateMs = 0;
 let streamingUpdateMs = 0;
+let shadowRenderMs = 0;
+let mainRenderMs = 0;
 let renderUpdateMs = 0;
+let mainDrawCallsCount = 0;
+let mainTrianglesCount = 0;
+let shadowDrawCallsCount = 0;
+let shadowTrianglesCount = 0;
 let noticeUntil = 0;
 let bustCooldownUntil = 0;
 let recklessSeconds = 0;
@@ -247,6 +335,22 @@ interface DebugSnapshot {
     readonly streamingUpdate: number;
     readonly render: number;
   };
+  readonly passBreakdown: {
+    readonly mainDrawCalls: number;
+    readonly mainTriangles: number;
+    readonly shadowDrawCalls: number;
+    readonly shadowTriangles: number;
+    readonly totalDrawCalls: number;
+    readonly totalTriangles: number;
+    readonly cpuShadowMs: number;
+    readonly cpuMainMs: number;
+    readonly cpuRenderTotalMs: number;
+    readonly gpuTimerSupported: boolean;
+    readonly gpuShadowMs: number | null;
+    readonly gpuMainMs: number | null;
+    readonly gpuTotalMs: number | null;
+    readonly blenderShadowStats: BlenderShadowStats | null;
+  };
 }
 
 declare global {
@@ -255,6 +359,7 @@ declare global {
       teleport(x: number, z: number): void;
       setView(x: number, y: number, z: number, yaw: number, pitch: number): void;
       thirdPersonView(x: number, z: number, yaw?: number, pitch?: number): void;
+      setShadowProfile(profile: ShadowLodProfile): void;
       metrics(): DebugSnapshot;
     };
   }
@@ -286,8 +391,8 @@ function debugSnapshot(): DebugSnapshot {
     loadedChunks: chunks?.loadedCount ?? 0,
     pendingChunks: chunks?.pendingCount ?? 0,
     colliderCount: chunks?.colliderCount ?? 0,
-    drawCalls: renderer.info.render.calls,
-    triangles: renderer.info.render.triangles,
+    drawCalls: mainDrawCallsCount,
+    triangles: mainTrianglesCount,
     worldMemoryMiB: chunks?.memoryMiB ?? 0,
     heapMemoryMiB: browserMemory ? browserMemory.usedJSHeapSize / (1024 * 1024) : null,
     agentsByLod: npcs?.lodCounts ?? [0, 0, 0],
@@ -298,6 +403,25 @@ function debugSnapshot(): DebugSnapshot {
       actorUpdate: actorUpdateMs,
       streamingUpdate: streamingUpdateMs,
       render: renderUpdateMs,
+    },
+    passBreakdown: {
+      mainDrawCalls: mainDrawCallsCount,
+      mainTriangles: mainTrianglesCount,
+      shadowDrawCalls: shadowDrawCallsCount,
+      shadowTriangles: shadowTrianglesCount,
+      totalDrawCalls: mainDrawCallsCount + shadowDrawCallsCount,
+      totalTriangles: mainTrianglesCount + shadowTrianglesCount,
+      cpuShadowMs: shadowRenderMs,
+      cpuMainMs: mainRenderMs,
+      cpuRenderTotalMs: renderUpdateMs,
+      gpuTimerSupported: timerExt !== null,
+      gpuShadowMs,
+      gpuMainMs,
+      gpuTotalMs:
+        gpuShadowMs !== null && gpuMainMs !== null
+          ? gpuShadowMs + gpuMainMs
+          : (gpuMainMs ?? gpuShadowMs),
+      blenderShadowStats: chunks?.getBlenderShadowStats() ?? null,
     },
   };
 }
@@ -346,6 +470,7 @@ if (debugMode) {
     teleport: teleportForAudit,
     setView: setDebugFreeView,
     thirdPersonView: setThirdPersonAuditView,
+    setShadowProfile: (profile) => chunks?.setShadowProfile(profile),
     metrics: debugSnapshot,
   };
 }
@@ -626,9 +751,69 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
       initialVehiclePlaced = true;
     }
   }
+  pollGpuQueries();
+  if (renderer.shadowMap.enabled) {
+    if (!shadowTriggerPoints.parent) {
+      scene.add(shadowTriggerPoints);
+      sun.layers.enable(SHADOW_TRIGGER_LAYER);
+      shadowTriggerPoints.onBeforeRender = () => {
+        if (!runShadowCaptureOnTrigger) return;
+        shadowDriverCamera.layers.enable(0);
+        shadowDriverCamera.layers.enable(SHADOW_PROXY_LAYER);
+        renderer.info.reset();
+        renderer.shadowMap.needsUpdate = true;
+        const shadowStart = debugMode ? performance.now() : 0;
+        const shadowQuery = beginGpuTimer();
+        (
+          renderer.shadowMap as unknown as {
+            render(lights: THREE.Light[], s: THREE.Scene, c: THREE.Camera): void;
+          }
+        ).render([sun], scene, shadowDriverCamera);
+        endGpuTimer(shadowQuery, 'shadow');
+        if (debugMode) shadowRenderMs = performance.now() - shadowStart;
+        shadowDrawCallsCount = renderer.info.render.calls;
+        shadowTrianglesCount = renderer.info.render.triangles;
+        shadowDriverCamera.layers.set(SHADOW_TRIGGER_LAYER);
+        renderer.shadowMap.needsUpdate = false;
+      };
+    }
+
+    const savedBg = scene.background;
+    const savedFog = scene.fog;
+    const savedAutoClear = renderer.autoClear;
+    const savedAutoReset = renderer.info.autoReset;
+    scene.background = null;
+    scene.fog = null;
+    renderer.autoClear = false;
+    renderer.info.autoReset = false;
+    renderer.shadowMap.autoUpdate = false;
+    renderer.shadowMap.needsUpdate = false;
+    runShadowCaptureOnTrigger = true;
+    renderer.setRenderTarget(shadowDummyTarget);
+    renderer.render(scene, shadowDriverCamera);
+    runShadowCaptureOnTrigger = false;
+    renderer.setRenderTarget(null);
+    scene.background = savedBg;
+    scene.fog = savedFog;
+    renderer.autoClear = savedAutoClear;
+    renderer.info.autoReset = savedAutoReset;
+  } else {
+    renderer.shadowMap.autoUpdate = false;
+    shadowRenderMs = 0;
+    shadowDrawCallsCount = 0;
+    shadowTrianglesCount = 0;
+  }
+
   systemStart = debugMode ? performance.now() : 0;
+  const mainQuery = beginGpuTimer();
   renderer.render(scene, camera);
-  if (debugMode) renderUpdateMs = performance.now() - systemStart;
+  endGpuTimer(mainQuery, 'main');
+  if (debugMode) {
+    mainRenderMs = performance.now() - systemStart;
+    renderUpdateMs = shadowRenderMs + mainRenderMs;
+  }
+  mainDrawCallsCount = renderer.info.render.calls;
+  mainTrianglesCount = renderer.info.render.triangles;
   frameCount += 1;
   if (timestamp - frameWindowStart >= 500) {
     fpsLabel.textContent = String(Math.round((frameCount * 1000) / (timestamp - frameWindowStart)));
@@ -800,6 +985,9 @@ window.addEventListener('pagehide', () => {
   police?.dispose();
   agentColliders?.dispose();
   chunks?.close();
+  shadowDummyTarget.dispose();
+  shadowTriggerGeometry.dispose();
+  shadowTriggerMaterial.dispose();
   renderer.dispose();
 });
 
@@ -808,11 +996,15 @@ const requestedWorld =
   worldParam === 'cc-prototype' || worldParam === 'cc-blender-sector'
     ? worldParam
     : 'cc-monumental';
-const buildingPipelineParam =
-  query.get('buildings') === 'blender' ? 'blender-library' : undefined;
+const buildingPipelineParam = query.get('buildings') === 'blender' ? 'blender-library' : undefined;
 const rawBudget = query.get('budget');
 const requestedBudget =
   rawBudget === '600k' || rawBudget === '1200k' || rawBudget === '2000k' ? rawBudget : '1200k';
+const rawShadowProfile = query.get('shadowProfile');
+const requestedShadowProfile: ShadowLodProfile =
+  rawShadowProfile === 'wide' || rawShadowProfile === 'balanced' || rawShadowProfile === 'proxy'
+    ? rawShadowProfile
+    : 'proxy';
 
 async function initializeWorld(): Promise<void> {
   world = await createPhysicsWorld();
@@ -827,6 +1019,7 @@ async function initializeWorld(): Promise<void> {
     cityKitEnabled,
     requestedBudget,
     buildingPipelineParam,
+    requestedShadowProfile,
   );
   cameraRig.occlusion = (origin, dir, maxDist) =>
     chunks?.cameraOcclusion(origin, dir, maxDist) ?? maxDist;

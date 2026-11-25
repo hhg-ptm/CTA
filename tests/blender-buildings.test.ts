@@ -7,6 +7,8 @@ import {
   selectBlenderArchetype,
 } from '../src/world/blender-geo-adapter';
 import { buildBuildingChunk } from '../src/world/building-builder';
+import { selectPrimaryStreetEdge } from '../src/world/building-details';
+import { SHADOW_PROFILE_CONFIGS } from '../src/world/chunk-manager';
 import { buildTerrainChunk } from '../src/world/mesh-builder';
 import type { ChunkFeature, RawTerrainChunk } from '../src/world/types';
 
@@ -244,5 +246,84 @@ describe('System B: Geographic adaptation onto Catastro & OSM footprints', () =>
     expect(built.colliderPositions.length).toBeGreaterThan(0);
     expect(built.footprints).toHaveLength(2);
     expect(built.levels[0]?.triangleCount ?? 0).toBe(0);
+  });
+
+  it('prefers real public streets over service alleys for primary commercial orientation and configures proxy shadows', () => {
+    // Edge 0 (z=-6, [-6,-6]->[6,-6]) faces a main street 7m away;
+    // Edge 2 (z=6, [6,6]->[-6,6]) is closer to a rear service alley 3m away.
+    const points: readonly (readonly [number, number])[] = [
+      [-6, -6],
+      [6, -6],
+      [6, 6],
+      [-6, 6],
+    ];
+    const roads: readonly ChunkFeature[] = [
+      {
+        id: 'rear_service_alley',
+        featureType: 'road',
+        highway: 'service',
+        points: [
+          [-20, 9],
+          [20, 9],
+        ],
+      },
+      {
+        id: 'front_avenue',
+        featureType: 'road',
+        highway: 'secondary',
+        points: [
+          [-20, -13],
+          [20, -13],
+        ],
+      },
+    ];
+    const primaryEdgeIndex = selectPrimaryStreetEdge(
+      points,
+      [true, true, true, true],
+      roads,
+      bounds,
+      undefined,
+      2.0,
+    );
+    expect(primaryEdgeIndex).toBe(0);
+
+    expect(SHADOW_PROFILE_CONFIGS.proxy.lod1ShadowMode).toBe('proxy');
+    expect(SHADOW_PROFILE_CONFIGS.balanced.lod1ShadowMode).toBe('lod1');
+    expect(SHADOW_PROFILE_CONFIGS.balanced.lod0RadiusMeters).toBeLessThan(
+      SHADOW_PROFILE_CONFIGS.wide.lod0RadiusMeters,
+    );
+    expect(SHADOW_PROFILE_CONFIGS.proxy.shadowCutoffMeters).toBeGreaterThan(180);
+
+    // Deep 2-row block (countV=2) must orient both front and back street rows outward, never inward
+    const deepCommercial: ChunkFeature[] = [
+      {
+        id: 'deep_comm_block',
+        featureType: 'building',
+        zone: 'ensanche',
+        buildingType: 'commercial',
+        visualFloors: 3,
+        visualHeightMeters: 11.5,
+        points: [
+          [-16, -15],
+          [16, -15],
+          [16, 15],
+          [-16, 15],
+        ],
+      },
+      ...roads,
+    ];
+    const deepGeo = buildBlenderGeoPlacements(deepCommercial, terrain, bounds);
+    const commModules = deepGeo.placements.filter((p) =>
+      p.buildingId.startsWith('deep_comm_block'),
+    );
+    expect(commModules.length).toBeGreaterThanOrEqual(4);
+    for (const m of commModules) {
+      const fwdZ = Math.cos(m.heading);
+      // Row near front_avenue (z < 0) points forward toward -Z; far row (z > 0) points forward toward +Z
+      if (m.z < 0) expect(fwdZ).toBeLessThan(-0.9);
+      else expect(fwdZ).toBeGreaterThan(0.9);
+    }
+    const streetCornerHero = commModules.find((m) => m.z < 0 && m.modelKey === '04_commercial');
+    expect(streetCornerHero).toBeDefined();
   });
 });

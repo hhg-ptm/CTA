@@ -2,8 +2,8 @@
  * GPU-instanced Three.js renderer for System A Blender building GLBs (FASE B + FASE C).
  *
  * Shares at most 2 global PBR materials across the entire 8-building library (CC_Atlas_Opaque
- * + CC_Atlas_Glass), rendering each chunk's placements in 2x2 sub-quadrants with dynamic
- * LOD0 (< 95m) -> LOD1 (< 205m) -> LOD2 (>= 205m) InstancedMesh switching.
+ * + CC_Atlas_Glass), rendering each chunk's placements in 3x3 subcells (~85m) with dynamic
+ * tiered LOD0 -> LOD1 -> LOD2 switching plus dedicated LOD2 shadow-caster proxies.
  */
 
 import * as THREE from 'three';
@@ -14,6 +14,10 @@ import type {
   BuiltBuildingChunk,
   ProjectedBounds,
 } from './types';
+
+export const SHADOW_PROXY_LAYER = 1;
+
+export type BlenderShadowMode = 'none' | 'lod0' | 'lod1' | 'lod2' | 'proxy';
 
 type LoadModel = (url: string, priority?: number) => Promise<GLTF>;
 
@@ -41,8 +45,12 @@ interface LoadedModelLods {
 export interface BlenderQuadrantCell {
   readonly centerX: number;
   readonly centerZ: number;
+  readonly halfExtentX: number;
+  readonly halfExtentZ: number;
   readonly lods: readonly [THREE.Mesh[], THREE.Mesh[], THREE.Mesh[]];
+  readonly shadowProxies: THREE.Mesh[];
   activeLod: -1 | 0 | 1 | 2;
+  activeShadowMode: BlenderShadowMode;
 }
 
 export class BlenderBuildingRenderer {
@@ -162,9 +170,19 @@ export class BlenderBuildingRenderer {
     }
   }
 
+  private getShadowProxyMaterial(): THREE.Material {
+    let mat = this.sharedMaterials.get('CC_Shadow_Proxy');
+    if (!mat) {
+      mat = new THREE.MeshBasicMaterial();
+      this.sharedMaterials.set('CC_Shadow_Proxy', mat);
+    }
+    return mat;
+  }
+
   /**
-   * Partition a chunk's placed buildings into 2x2 spatial quadrants so only the quadrant(s)
-   * within close proximity render full LOD0 detail, keeping total scene triangles <= 600k.
+   * Partition a chunk's placed buildings into 3x3 spatial subcells (~85m each) so only
+   * foreground blocks render LOD0 detail while mid-ground blocks can use lightweight LOD2
+   * shadow-caster proxies.
    */
   createQuadrantCells(
     buildings: BuiltBuildingChunk | undefined,
@@ -173,15 +191,28 @@ export class BlenderBuildingRenderer {
     const placements = buildings?.blenderPlacements;
     if (!this.ready || !placements || placements.length === 0) return [];
 
-    const midX = (bounds.minX + bounds.maxX) * 0.5;
-    const midZ = (bounds.minZ + bounds.maxZ) * 0.5;
-    const quadSpan = (bounds.maxX - bounds.minX) * 0.25;
+    const SUBCELL_DIVS = 3;
+    const spanX = bounds.maxX - bounds.minX;
+    const spanZ = bounds.maxZ - bounds.minZ;
+    const cellSpanX = spanX / SUBCELL_DIVS;
+    const cellSpanZ = spanZ / SUBCELL_DIVS;
+    const halfExtentX = cellSpanX * 0.5;
+    const halfExtentZ = cellSpanZ * 0.5;
 
-    const buckets: BlenderBuildingPlacement[][] = [[], [], [], []];
+    const buckets: BlenderBuildingPlacement[][] = Array.from(
+      { length: SUBCELL_DIVS * SUBCELL_DIVS },
+      () => [],
+    );
     for (const p of placements) {
-      const qx = p.x >= midX ? 1 : 0;
-      const qz = p.z >= midZ ? 1 : 0;
-      buckets[qz * 2 + qx]?.push(p);
+      const qx = Math.min(
+        SUBCELL_DIVS - 1,
+        Math.max(0, Math.floor((p.x - bounds.minX) / cellSpanX)),
+      );
+      const qz = Math.min(
+        SUBCELL_DIVS - 1,
+        Math.max(0, Math.floor((p.z - bounds.minZ) / cellSpanZ)),
+      );
+      buckets[qz * SUBCELL_DIVS + qx]?.push(p);
     }
 
     const matrix = new THREE.Matrix4();
@@ -189,15 +220,16 @@ export class BlenderBuildingRenderer {
     const quat = new THREE.Quaternion();
     const scale = new THREE.Vector3();
     const yAxis = new THREE.Vector3(0, 1, 0);
+    const proxyMaterial = this.getShadowProxyMaterial();
     const cells: BlenderQuadrantCell[] = [];
 
-    for (let idx = 0; idx < 4; idx += 1) {
+    for (let idx = 0; idx < SUBCELL_DIVS * SUBCELL_DIVS; idx += 1) {
       const list = buckets[idx];
       if (!list || list.length === 0) continue;
-      const qx = idx % 2;
-      const qz = idx >> 1;
-      const cellCx = midX + (qx === 0 ? -quadSpan : quadSpan);
-      const cellCz = midZ + (qz === 0 ? -quadSpan : quadSpan);
+      const qx = idx % SUBCELL_DIVS;
+      const qz = Math.floor(idx / SUBCELL_DIVS);
+      const cellCx = bounds.minX + (qx + 0.5) * cellSpanX;
+      const cellCz = bounds.minZ + (qz + 0.5) * cellSpanZ;
 
       const byModel = new Map<BlenderModelKey, BlenderBuildingPlacement[]>();
       for (const p of list) {
@@ -209,50 +241,122 @@ export class BlenderBuildingRenderer {
       const lod0Meshes: THREE.Mesh[] = [];
       const lod1Meshes: THREE.Mesh[] = [];
       const lod2Meshes: THREE.Mesh[] = [];
+      const shadowProxies: THREE.Mesh[] = [];
 
       for (const [key, items] of byModel) {
         const loaded = this.models.get(key);
         if (!loaded) continue;
 
+        const matrices: THREE.Matrix4[] = [];
+        for (let i = 0; i < items.length; i += 1) {
+          const item = items[i];
+          if (!item) continue;
+          pos.set(item.x, item.y, item.z);
+          quat.setFromAxisAngle(yAxis, item.heading);
+          scale.set(item.scaleX, item.scaleY, item.scaleZ);
+          matrix.compose(pos, quat, scale);
+          matrices.push(matrix.clone());
+        }
+
         const buildInstances = (
           parts: readonly ModelPart[],
-          castShadow: boolean,
+          overrideMaterial: THREE.Material | null,
+          shadowOnlyLayer: boolean,
           out: THREE.Mesh[],
         ): void => {
           for (const part of parts) {
-            const mesh = new THREE.InstancedMesh(part.geometry, part.material, items.length);
-            for (let i = 0; i < items.length; i += 1) {
-              const item = items[i];
-              if (!item) continue;
-              pos.set(item.x, item.y, item.z);
-              quat.setFromAxisAngle(yAxis, item.heading);
-              scale.set(item.scaleX, item.scaleY, item.scaleZ);
-              matrix.compose(pos, quat, scale);
-              mesh.setMatrixAt(i, matrix);
+            part.geometry.userData.sharedGeometry = true;
+            const mat = overrideMaterial ?? part.material;
+            const mesh = new THREE.InstancedMesh(part.geometry, mat, matrices.length);
+            for (let i = 0; i < matrices.length; i += 1) {
+              const m = matrices[i];
+              if (m) mesh.setMatrixAt(i, m);
             }
             mesh.instanceMatrix.needsUpdate = true;
             mesh.computeBoundingSphere();
-            mesh.castShadow = castShadow;
-            mesh.receiveShadow = true;
+            mesh.castShadow = shadowOnlyLayer;
+            mesh.receiveShadow = !shadowOnlyLayer;
             mesh.visible = false;
+            if (shadowOnlyLayer) {
+              mesh.layers.set(SHADOW_PROXY_LAYER);
+              mesh.matrixAutoUpdate = false;
+              mesh.updateMatrix();
+            }
             out.push(mesh);
           }
         };
 
-        buildInstances(loaded.lod0, true, lod0Meshes);
-        buildInstances(loaded.lod1, false, lod1Meshes);
-        buildInstances(loaded.lod2, false, lod2Meshes);
+        buildInstances(loaded.lod0, null, false, lod0Meshes);
+        buildInstances(loaded.lod1, null, false, lod1Meshes);
+        buildInstances(loaded.lod2, null, false, lod2Meshes);
+
+        const opaqueLod2 = loaded.lod2.filter((part) => !part.material.transparent);
+        const proxyParts = opaqueLod2.length > 0 ? opaqueLod2 : loaded.lod2.slice(0, 1);
+        buildInstances(proxyParts, proxyMaterial, true, shadowProxies);
       }
 
       cells.push({
         centerX: cellCx,
         centerZ: cellCz,
+        halfExtentX,
+        halfExtentZ,
         lods: [lod0Meshes, lod1Meshes, lod2Meshes],
+        shadowProxies,
         activeLod: -1,
+        activeShadowMode: 'none',
       });
     }
 
     return cells;
+  }
+
+  /**
+   * Build one chunk-wide InstancedMesh batch per archetype at LOD2 so distant all-LOD2
+   * chunks coalesce ~9 subcell batches down into 1 batch per model without sacrificing 3x3 precision nearby.
+   */
+  createChunkLod2Meshes(buildings: BuiltBuildingChunk | undefined): THREE.Mesh[] {
+    const placements = buildings?.blenderPlacements;
+    if (!this.ready || !placements || placements.length === 0) return [];
+
+    const byModel = new Map<BlenderModelKey, BlenderBuildingPlacement[]>();
+    for (const p of placements) {
+      const group = byModel.get(p.modelKey);
+      if (group) group.push(p);
+      else byModel.set(p.modelKey, [p]);
+    }
+
+    const matrix = new THREE.Matrix4();
+    const pos = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const out: THREE.Mesh[] = [];
+
+    for (const [key, items] of byModel) {
+      const loaded = this.models.get(key);
+      if (!loaded) continue;
+      for (const part of loaded.lod2) {
+        part.geometry.userData.sharedGeometry = true;
+        const mesh = new THREE.InstancedMesh(part.geometry, part.material, items.length);
+        for (let i = 0; i < items.length; i += 1) {
+          const item = items[i];
+          if (!item) continue;
+          pos.set(item.x, item.y, item.z);
+          quat.setFromAxisAngle(yAxis, item.heading);
+          scale.set(item.scaleX, item.scaleY, item.scaleZ);
+          matrix.compose(pos, quat, scale);
+          mesh.setMatrixAt(i, matrix);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.computeBoundingSphere();
+        mesh.castShadow = false;
+        mesh.receiveShadow = true;
+        mesh.visible = false;
+        out.push(mesh);
+      }
+    }
+
+    return out;
   }
 
   dispose(): void {

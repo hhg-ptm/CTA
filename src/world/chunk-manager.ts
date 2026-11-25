@@ -7,7 +7,11 @@ import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { buildChunkBorderGeometry } from './chunk-debug';
 import { ChunkDebugOverlays } from './debug-overlays';
 import { BuildingRenderer } from './building-renderer';
-import { BlenderBuildingRenderer, type BlenderQuadrantCell } from './blender-building-renderer';
+import {
+  BlenderBuildingRenderer,
+  type BlenderQuadrantCell,
+  type BlenderShadowMode,
+} from './blender-building-renderer';
 import { CityKit } from './city-kit';
 import { sampleHeight } from './road-geometry';
 import { RoadRenderer } from './road-renderer';
@@ -21,10 +25,52 @@ import type {
   BuiltTerrainChunk,
   ChunkEntry,
   DetailBudgetProfile,
+  ShadowLodProfile,
   TerrainChunkEvents,
   TerrainLodData,
   WorldManifest,
 } from './types';
+
+export interface ShadowProfileConfig {
+  readonly lod0RadiusMeters: number;
+  readonly lod1RadiusMeters: number;
+  readonly shadowCutoffMeters: number;
+  readonly lod1ShadowMode: 'lod1' | 'proxy';
+}
+
+export const SHADOW_PROFILE_CONFIGS: Readonly<Record<ShadowLodProfile, ShadowProfileConfig>> = {
+  wide: {
+    lod0RadiusMeters: 75,
+    lod1RadiusMeters: 165,
+    shadowCutoffMeters: 245,
+    lod1ShadowMode: 'lod1',
+  },
+  balanced: {
+    lod0RadiusMeters: 42,
+    lod1RadiusMeters: 115,
+    shadowCutoffMeters: 235,
+    lod1ShadowMode: 'lod1',
+  },
+  proxy: {
+    lod0RadiusMeters: 42,
+    lod1RadiusMeters: 115,
+    shadowCutoffMeters: 235,
+    lod1ShadowMode: 'proxy',
+  },
+};
+
+export interface BlenderShadowStats {
+  readonly profile: ShadowLodProfile;
+  readonly lod0Cells: number;
+  readonly lod1Cells: number;
+  readonly lod2Cells: number;
+  readonly shadowLod0Cells: number;
+  readonly shadowLod1Cells: number;
+  readonly shadowLod2Cells: number;
+  readonly shadowProxyCells: number;
+  readonly shadowCulledCells: number;
+  readonly landmarkCasters: number;
+}
 
 type ChunkState = 'queued' | 'loading' | 'loaded' | 'error';
 
@@ -38,6 +84,9 @@ interface ChunkRecord {
   buildingMeshes?: THREE.Mesh[][];
   buildingDetailMeshes?: THREE.Mesh[][];
   blenderCells?: BlenderQuadrantCell[];
+  blenderChunkLod2?: THREE.Mesh[];
+  blenderChunkLod2Active?: boolean;
+  blenderChunkLod2Shadow?: boolean;
   decorationMeshes?: THREE.Mesh[];
   landmarkObjects?: THREE.Object3D[];
   storks?: THREE.Group[];
@@ -217,6 +266,7 @@ export class ChunkManager {
   private readonly buildingRenderer = new BuildingRenderer();
   private readonly blenderBuildings: BlenderBuildingRenderer;
   private readonly buildingPipelineOverride?: BuildingPipelineMode;
+  private shadowProfile: ShadowLodProfile;
   private readonly cityKit: CityKit | undefined;
   private readonly debugOverlays: ChunkDebugOverlays;
   private readonly debugBorderMaterial = new THREE.LineBasicMaterial({
@@ -249,11 +299,13 @@ export class ChunkManager {
     cityKitEnabled = false,
     detailBudget: DetailBudgetProfile = '1200k',
     buildingPipeline?: BuildingPipelineMode,
+    shadowProfile: ShadowLodProfile = 'proxy',
   ) {
     this.scene = scene;
     this.world = physicsWorld;
     this.detailBudget = detailBudget;
     this.buildingPipelineOverride = buildingPipeline;
+    this.shadowProfile = shadowProfile;
     this.blenderBuildings = new BlenderBuildingRenderer(worldBaseUrl);
     this.cityKit = cityKitEnabled ? new CityKit(worldBaseUrl) : undefined;
     this.debugOverlays = new ChunkDebugOverlays(scene);
@@ -284,7 +336,8 @@ export class ChunkManager {
       this.buildingRenderer.prepare(renderer, this.scene, camera, this.material),
     ]);
     const prepTasks: Promise<void>[] = [];
-    if (this.cityKit) prepTasks.push(this.cityKit.prepare((url, priority) => this.loadModel(url, priority)));
+    if (this.cityKit)
+      prepTasks.push(this.cityKit.prepare((url, priority) => this.loadModel(url, priority)));
     if (this.effectiveBuildingPipeline === 'blender-library') {
       prepTasks.push(
         this.blenderBuildings.prepare((url, priority) => this.loadModel(url, priority)),
@@ -317,8 +370,18 @@ export class ChunkManager {
     const colliderRadius = this.manifest.chunkMeters * 0.75;
     for (const entry of this.manifest.chunks) {
       const distance = distanceToCenter(x, z, entry);
-      const bx = x < entry.bounds.minX ? entry.bounds.minX - x : x > entry.bounds.maxX ? x - entry.bounds.maxX : 0;
-      const bz = z < entry.bounds.minZ ? entry.bounds.minZ - z : z > entry.bounds.maxZ ? z - entry.bounds.maxZ : 0;
+      const bx =
+        x < entry.bounds.minX
+          ? entry.bounds.minX - x
+          : x > entry.bounds.maxX
+            ? x - entry.bounds.maxX
+            : 0;
+      const bz =
+        z < entry.bounds.minZ
+          ? entry.bounds.minZ - z
+          : z > entry.bounds.maxZ
+            ? z - entry.bounds.maxZ
+            : 0;
       const boundsDistance = Math.hypot(bx, bz);
       let record = this.records.get(entry.id);
       if (record && distance > unloadRadius) {
@@ -545,24 +608,178 @@ export class ChunkManager {
     this.syncDebugOverlays(record);
   }
 
+  setShadowProfile(profile: ShadowLodProfile): void {
+    if (this.shadowProfile === profile) return;
+    this.shadowProfile = profile;
+    for (const record of this.records.values()) {
+      this.syncBlenderCellLods(record, this.lastCameraX, this.lastCameraZ);
+    }
+  }
+
+  getBlenderShadowStats(): BlenderShadowStats {
+    let lod0Cells = 0;
+    let lod1Cells = 0;
+    let lod2Cells = 0;
+    let shadowLod0Cells = 0;
+    let shadowLod1Cells = 0;
+    let shadowLod2Cells = 0;
+    let shadowProxyCells = 0;
+    let shadowCulledCells = 0;
+    let landmarkCasters = 0;
+
+    for (const record of this.records.values()) {
+      if (record.state !== 'loaded') continue;
+      if (record.landmarkObjects) landmarkCasters += record.landmarkObjects.length;
+      if (this.effectiveBuildingPipeline === 'blender-library' && record.buildingMeshes) {
+        for (const m of record.buildingMeshes[record.lod] ?? []) {
+          if (m.visible && m.castShadow) landmarkCasters += 1;
+        }
+      }
+      for (const cell of record.blenderCells ?? []) {
+        if (record.blenderChunkLod2Active) {
+          lod2Cells += 1;
+          if (record.blenderChunkLod2Shadow) shadowLod2Cells += 1;
+          else shadowCulledCells += 1;
+          continue;
+        }
+        if (cell.activeLod === 0) lod0Cells += 1;
+        else if (cell.activeLod === 1) lod1Cells += 1;
+        else if (cell.activeLod === 2) lod2Cells += 1;
+
+        if (cell.activeShadowMode === 'lod0') shadowLod0Cells += 1;
+        else if (cell.activeShadowMode === 'lod1') shadowLod1Cells += 1;
+        else if (cell.activeShadowMode === 'lod2') shadowLod2Cells += 1;
+        else if (cell.activeShadowMode === 'proxy') shadowProxyCells += 1;
+        else shadowCulledCells += 1;
+      }
+    }
+
+    return {
+      profile: this.shadowProfile,
+      lod0Cells,
+      lod1Cells,
+      lod2Cells,
+      shadowLod0Cells,
+      shadowLod1Cells,
+      shadowLod2Cells,
+      shadowProxyCells,
+      shadowCulledCells,
+      landmarkCasters,
+    };
+  }
+
   private syncBlenderCellLods(record: ChunkRecord, camX: number, camZ: number): void {
     const cells = record.blenderCells;
     if (!cells || cells.length === 0) return;
+    const cfg = SHADOW_PROFILE_CONFIGS[this.shadowProfile];
+    const chunkLod2 = record.blenderChunkLod2;
+
+    let anyNearCell = false;
     for (const cell of cells) {
-      const dist = Math.hypot(camX - cell.centerX, camZ - cell.centerZ);
-      const targetLod: 0 | 1 | 2 = dist < 82 ? 0 : dist < 180 ? 1 : 2;
-      if (cell.activeLod === targetLod) continue;
-      const prevLod = cell.activeLod;
-      if (prevLod !== -1) {
-        for (const mesh of cell.lods[prevLod]) {
-          mesh.visible = false;
-          this.scene.remove(mesh);
+      const dx = Math.max(0, Math.abs(camX - cell.centerX) - cell.halfExtentX);
+      const dz = Math.max(0, Math.abs(camZ - cell.centerZ) - cell.halfExtentZ);
+      if (Math.hypot(dx, dz) < cfg.lod1RadiusMeters) {
+        anyNearCell = true;
+        break;
+      }
+    }
+
+    if (!anyNearCell && chunkLod2 && chunkLod2.length > 0) {
+      const b = record.entry.bounds;
+      const chunkDx = Math.max(b.minX - camX, 0, camX - b.maxX);
+      const chunkDz = Math.max(b.minZ - camZ, 0, camZ - b.maxZ);
+      const chunkShadow = Math.hypot(chunkDx, chunkDz) < cfg.shadowCutoffMeters;
+      if (!record.blenderChunkLod2Active || record.blenderChunkLod2Shadow !== chunkShadow) {
+        for (const cell of cells) {
+          if (cell.activeLod !== -1) {
+            for (const mesh of cell.lods[cell.activeLod]) {
+              mesh.visible = false;
+              mesh.castShadow = false;
+              this.scene.remove(mesh);
+            }
+            cell.activeLod = -1;
+          }
+          if (cell.activeShadowMode !== 'none') {
+            for (const proxy of cell.shadowProxies) {
+              if (proxy.visible) {
+                proxy.visible = false;
+                this.scene.remove(proxy);
+              }
+            }
+            cell.activeShadowMode = 'none';
+          }
+        }
+        for (const mesh of chunkLod2) {
+          mesh.visible = true;
+          mesh.castShadow = chunkShadow;
+          if (!record.blenderChunkLod2Active) this.scene.add(mesh);
+        }
+        record.blenderChunkLod2Active = true;
+        record.blenderChunkLod2Shadow = chunkShadow;
+      }
+      return;
+    }
+
+    if (record.blenderChunkLod2Active && chunkLod2) {
+      for (const mesh of chunkLod2) {
+        mesh.visible = false;
+        mesh.castShadow = false;
+        this.scene.remove(mesh);
+      }
+      record.blenderChunkLod2Active = false;
+      record.blenderChunkLod2Shadow = false;
+    }
+
+    for (const cell of cells) {
+      const dx = Math.max(0, Math.abs(camX - cell.centerX) - cell.halfExtentX);
+      const dz = Math.max(0, Math.abs(camZ - cell.centerZ) - cell.halfExtentZ);
+      const edgeDist = Math.hypot(dx, dz);
+
+      const targetLod: 0 | 1 | 2 =
+        edgeDist < cfg.lod0RadiusMeters ? 0 : edgeDist < cfg.lod1RadiusMeters ? 1 : 2;
+      const inShadowRange = edgeDist < cfg.shadowCutoffMeters;
+      const targetShadowMode: BlenderShadowMode = !inShadowRange
+        ? 'none'
+        : targetLod === 0
+          ? 'lod0'
+          : targetLod === 1
+            ? cfg.lod1ShadowMode
+            : 'lod2';
+
+      if (cell.activeLod !== targetLod) {
+        if (cell.activeLod !== -1) {
+          for (const mesh of cell.lods[cell.activeLod]) {
+            mesh.visible = false;
+            this.scene.remove(mesh);
+          }
+        }
+        cell.activeLod = targetLod;
+        for (const mesh of cell.lods[targetLod] ?? []) {
+          mesh.visible = true;
+          this.scene.add(mesh);
         }
       }
-      cell.activeLod = targetLod;
-      for (const mesh of cell.lods[targetLod] ?? []) {
-        mesh.visible = true;
-        this.scene.add(mesh);
+
+      if (cell.activeShadowMode !== targetShadowMode) {
+        const useProxy = targetShadowMode === 'proxy';
+        for (const proxy of cell.shadowProxies) {
+          if (useProxy && !proxy.visible) {
+            proxy.visible = true;
+            this.scene.add(proxy);
+          } else if (!useProxy && proxy.visible) {
+            proxy.visible = false;
+            this.scene.remove(proxy);
+          }
+        }
+        const activeShadowDirect =
+          targetShadowMode === 'lod0' || targetShadowMode === 'lod1' || targetShadowMode === 'lod2';
+        for (const mesh of cell.lods[targetLod] ?? []) {
+          mesh.castShadow = activeShadowDirect;
+        }
+        if (targetLod !== 0) for (const mesh of cell.lods[0]) mesh.castShadow = false;
+        if (targetLod !== 1) for (const mesh of cell.lods[1]) mesh.castShadow = false;
+        if (targetLod !== 2) for (const mesh of cell.lods[2]) mesh.castShadow = false;
+        cell.activeShadowMode = targetShadowMode;
       }
     }
   }
@@ -606,13 +823,16 @@ export class ChunkManager {
         );
       }
       for (const mesh of decorationMeshes) this.scene.add(mesh);
+      const preserveMonumentShadows =
+        this.effectiveBuildingPipeline === 'blender-library' ||
+        DETAIL_BUDGET_CONFIGS[this.detailBudget].lod0CastShadowDirect;
       const buildingDetailMeshes =
         kitActive && this.cityKit
           ? this.cityKit.createBuildingDetailMeshesByLod(
               item.result.buildings,
               centerX,
               centerZ,
-              DETAIL_BUDGET_CONFIGS[this.detailBudget].lod0CastShadowDirect,
+              preserveMonumentShadows,
             )
           : [[], [], []];
       for (const mesh of buildingDetailMeshes[record.lod] ?? []) {
@@ -623,7 +843,7 @@ export class ChunkManager {
         item.result.buildings,
         centerX,
         centerZ,
-        DETAIL_BUDGET_CONFIGS[this.detailBudget].lod0CastShadowDirect,
+        preserveMonumentShadows,
       );
       for (const mesh of buildingMeshes[record.lod] ?? []) {
         mesh.visible = true;
@@ -632,6 +852,9 @@ export class ChunkManager {
       const blenderCells = this.blenderBuildings.isReady
         ? this.blenderBuildings.createQuadrantCells(item.result.buildings, record.entry.bounds)
         : [];
+      const blenderChunkLod2 = this.blenderBuildings.isReady
+        ? this.blenderBuildings.createChunkLod2Meshes(item.result.buildings)
+        : [];
       record.result = item.result;
       if (item.result.roads)
         this.roadHeights.set(item.id, new RoadHeightIndex(item.result.roads, record.entry.bounds));
@@ -639,6 +862,7 @@ export class ChunkManager {
       record.buildingMeshes = buildingMeshes;
       record.buildingDetailMeshes = buildingDetailMeshes;
       record.blenderCells = blenderCells;
+      record.blenderChunkLod2 = blenderChunkLod2;
       this.syncBlenderCellLods(record, this.lastCameraX, this.lastCameraZ);
       record.decorationMeshes = decorationMeshes;
       record.storks = (item.result.buildings?.storks ?? []).map((instance) => {
@@ -895,6 +1119,16 @@ export class ChunkManager {
             if (mesh.geometry.userData.sharedGeometry !== true) mesh.geometry.dispose();
           }
         }
+        for (const proxy of cell.shadowProxies) {
+          this.scene.remove(proxy);
+          if (proxy.geometry.userData.sharedGeometry !== true) proxy.geometry.dispose();
+        }
+      }
+    }
+    if (record.blenderChunkLod2) {
+      for (const mesh of record.blenderChunkLod2) {
+        this.scene.remove(mesh);
+        if (mesh.geometry.userData.sharedGeometry !== true) mesh.geometry.dispose();
       }
     }
     if (record.landmarkObjects)
