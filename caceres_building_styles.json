@@ -21,16 +21,8 @@
       "zone": "casco",
       "wallMaterial": "casco_facade",
       "atlasBand": 0,
-      "baseTintRgb": [
-        0.97,
-        0.92,
-        0.84
-      ],
-      "plinthColorRgb": [
-        0.55,
-        0.5,
-        0.42
-      ],
+      "baseTintRgb": [0.97, 0.92, 0.84],
+      "plinthColorRgb": [0.55, 0.5, 0.42],
       "tileRoofDefault": true,
       "windowKind": "window_casco",
       "balconyKind": "balcony",
@@ -48,16 +40,8 @@
       "zone": "casco",
       "wallMaterial": "casco_facade",
       "atlasBand": 1,
-      "baseTintRgb": [
-        0.99,
-        0.97,
-        0.93
-      ],
-      "plinthColorRgb": [
-        0.58,
-        0.53,
-        0.45
-      ],
+      "baseTintRgb": [0.99, 0.97, 0.93],
+      "plinthColorRgb": [0.58, 0.53, 0.45],
       "tileRoofDefault": true,
       "windowKind": "window_casco",
       "balconyKind": "balcony",
@@ -73,16 +57,8 @@
       "zone": "casco",
       "wallMaterial": "casco_facade",
       "atlasBand": 2,
-      "baseTintRgb": [
-        0.98,
-        0.91,
-        0.8
-      ],
-      "plinthColorRgb": [
-        0.55,
-        0.49,
-        0.41
-      ],
+      "baseTintRgb": [0.98, 0.91, 0.8],
+      "plinthColorRgb": [0.55, 0.49, 0.41],
       "tileRoofDefault": true,
       "windowKind": "window_casco",
       "balconyKind": "balcony",
@@ -98,16 +74,8 @@
       "zone": "casco",
       "wallMaterial": "casco_facade",
       "atlasBand": 3,
-      "baseTintRgb": [
-        0.96,
-        0.86,
-        0.78
-      ],
-      "plinthColorRgb": [
-        0.54,
-        0.47,
-        0.4
-      ],
+      "baseTintRgb": [0.96, 0.86, 0.78],
+      "plinthColorRgb": [0.54, 0.47, 0.4],
       "tileRoofDefault": true,
       "windowKind": "window_casco",
       "balconyKind": "balcony",
@@ -123,16 +91,8 @@
       "zone": "ensanche",
       "wallMaterial": "ensanche_facade",
       "atlasBand": 0,
-      "baseTintRgb": [
-        0.98,
-        0.92,
-        0.89
-      ],
-      "plinthColorRgb": [
-        0.52,
-        0.5,
-        0.47
-      ],
+      "baseTintRgb": [0.98, 0.92, 0.89],
+      "plinthColorRgb": [0.52, 0.5, 0.47],
       "tileRoofDefault": "when_non_flat",
       "windowKind": "window_ensanche",
       "balconyKind": "balcony_modern",
@@ -148,16 +108,8 @@
       "zone": "ensanche",
       "wallMaterial": "ensanche_facade",
       "atlasBand": 1,
-      "baseTintRgb": [
-        0.98,
-        0.94,
-        0.88
-      ],
-      "plinthColorRgb": [
-        0.58,
-        0.56,
-        0.52
-      ],
+      "baseTintRgb": [0.98, 0.94, 0.88],
+      "plinthColorRgb": [0.58, 0.56, 0.52],
       "tileRoofDefault": "when_non_flat",
       "windowKind": "window_ensanche",
       "balconyKind": "balcony_modern",
@@ -173,16 +125,8 @@
       "zone": "ensanche",
       "wallMaterial": "ensanche_facade",
       "atlasBand": 2,
-      "baseTintRgb": [
-        0.97,
-        0.89,
-        0.83
-      ],
-      "plinthColorRgb": [
-        0.56,
-        0.52,
-        0.48
-      ],
+      "baseTintRgb": [0.97, 0.89, 0.83],
+      "plinthColorRgb": [0.56, 0.52, 0.48],
       "tileRoofDefault": "when_non_flat",
       "windowKind": "window_ensanche",
       "balconyKind": "balcony_modern",
@@ -198,16 +142,8 @@
       "zone": "ensanche",
       "wallMaterial": "ensanche_facade",
       "atlasBand": 3,
-      "baseTintRgb": [
-        0.96,
-        0.97,
-        0.98
-      ],
-      "plinthColorRgb": [
-        0.46,
-        0.48,
-        0.5
-      ],
+      "baseTintRgb": [0.96, 0.97, 0.98],
+      "plinthColorRgb": [0.46, 0.48, 0.5],
       "tileRoofDefault": false,
       "windowKind": "window_modern",
       "balconyKind": "balcony_modern",
@@ -223,16 +159,8 @@
       "zone": "periferia",
       "wallMaterial": "periferia_facade",
       "atlasBand": 0,
-      "baseTintRgb": [
-        0.98,
-        0.96,
-        0.92
-      ],
-      "plinthColorRgb": [
-        0.64,
-        0.54,
-        0.46
-      ],
+      "baseTintRgb": [0.98, 0.96, 0.92],
+      "plinthColorRgb": [0.64, 0.54, 0.46],
       "tileRoofDefault": true,
       "windowKind": "window_modern",
       "balconyKind": "balcony_modern",
@@ -248,16 +176,8 @@
       "zone": "periferia",
       "wallMaterial": "periferia_facade",
       "atlasBand": 1,
-      "baseTintRgb": [
-        0.96,
-        0.92,
-        0.86
-      ],
-      "plinthColorRgb": [
-        0.56,
-        0.54,
-        0.5
-      ],
+      "baseTintRgb": [0.96, 0.92, 0.86],
+      "plinthColorRgb": [0.56, 0.54, 0.5],
       "tileRoofDefault": "when_osm_tile",
       "windowKind": "window_ensanche",
       "balconyKind": "balcony_modern",
@@ -273,16 +193,8 @@
       "zone": "periferia",
       "wallMaterial": "periferia_facade",
       "atlasBand": 2,
-      "baseTintRgb": [
-        0.93,
-        0.95,
-        0.97
-      ],
-      "plinthColorRgb": [
-        0.5,
-        0.52,
-        0.54
-      ],
+      "baseTintRgb": [0.93, 0.95, 0.97],
+      "plinthColorRgb": [0.5, 0.52, 0.54],
       "tileRoofDefault": false,
       "windowKind": "window_modern",
       "balconyKind": "balcony_modern",
@@ -297,16 +209,8 @@
       "zone": "periferia",
       "wallMaterial": "periferia_facade",
       "atlasBand": 3,
-      "baseTintRgb": [
-        0.96,
-        0.94,
-        0.9
-      ],
-      "plinthColorRgb": [
-        0.52,
-        0.52,
-        0.5
-      ],
+      "baseTintRgb": [0.96, 0.94, 0.9],
+      "plinthColorRgb": [0.52, 0.52, 0.5],
       "tileRoofDefault": false,
       "windowKind": "window_modern",
       "balconyKind": "balcony_modern",
@@ -358,54 +262,15 @@
       "portalPlacement": "Prioritize ground-floor residential portals on edges nearest matched Catastro AD coordinates (5,688 matched buildings) and shopfront awnings on retail frontages."
     },
     "stylizedLowPolyPaletteHex": {
-      "cascoQuartzite": [
-        "#C9B89A",
-        "#B8A586",
-        "#D6C5A7"
-      ],
-      "limewash": [
-        "#F6F1E7",
-        "#EFE8DA",
-        "#E7DEC9"
-      ],
-      "ochreAndTerre": [
-        "#E2BE89",
-        "#D79E70",
-        "#C87D55"
-      ],
-      "brickAndTerracotta": [
-        "#BA6347",
-        "#A9543B",
-        "#C87354"
-      ],
-      "ensancheRender": [
-        "#ECE3D4",
-        "#DFD3BF",
-        "#D2C4B0",
-        "#E5D8C5"
-      ],
-      "modernNeutral": [
-        "#DCE3EA",
-        "#B8C4CF",
-        "#8E9BA8",
-        "#505A66"
-      ],
-      "arabicTileRoof": [
-        "#B55538",
-        "#C46342",
-        "#9E462D"
-      ],
-      "modernSlateOrGravelRoof": [
-        "#646B73",
-        "#7E848C",
-        "#545B62"
-      ],
-      "accentShutters": [
-        "#3E5C45",
-        "#5B4031",
-        "#415466",
-        "#8B4332"
-      ]
+      "cascoQuartzite": ["#C9B89A", "#B8A586", "#D6C5A7"],
+      "limewash": ["#F6F1E7", "#EFE8DA", "#E7DEC9"],
+      "ochreAndTerre": ["#E2BE89", "#D79E70", "#C87D55"],
+      "brickAndTerracotta": ["#BA6347", "#A9543B", "#C87354"],
+      "ensancheRender": ["#ECE3D4", "#DFD3BF", "#D2C4B0", "#E5D8C5"],
+      "modernNeutral": ["#DCE3EA", "#B8C4CF", "#8E9BA8", "#505A66"],
+      "arabicTileRoof": ["#B55538", "#C46342", "#9E462D"],
+      "modernSlateOrGravelRoof": ["#646B73", "#7E848C", "#545B62"],
+      "accentShutters": ["#3E5C45", "#5B4031", "#415466", "#8B4332"]
     }
   },
   "cityKitAudit": {

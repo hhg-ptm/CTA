@@ -397,7 +397,17 @@ function addWalls(
     );
     const isPrimaryEdge = edge === primaryEdgeIdx;
     const miradorBay = activeDetail
-      ? selectMiradorBay(seed, floors, style, panels, length, isPrimaryEdge, isSetback, isTower, budget)
+      ? selectMiradorBay(
+          seed,
+          floors,
+          style,
+          panels,
+          length,
+          isPrimaryEdge,
+          isSetback,
+          isTower,
+          budget,
+        )
       : -1;
     const storeyH = item.wallHeight / Math.max(1, floors);
     const startGround = localHeight(terrain, start);
@@ -550,7 +560,8 @@ function addWalls(
       }
       // Floor belt courses ("impostas")
       for (let floor = 0; floor < floors - 1; floor += 1) {
-        if (floor === 0 && budget.enableArticulatedPorticos && isPrimaryEdge && !isSetback) continue;
+        if (floor === 0 && budget.enableArticulatedPorticos && isPrimaryEdge && !isSetback)
+          continue;
         const floorTop = baseOffset + (item.wallHeight * (floor + 1)) / floors;
         addProjectingStrip(
           writer,
