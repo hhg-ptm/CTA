@@ -1,5 +1,10 @@
 import type { BuildingColor } from './building-geometry';
-import type { BuildingDetailKind, BuildingMaterial, ChunkFeature, DetailBudgetProfile } from './types';
+import type {
+  BuildingDetailKind,
+  BuildingMaterial,
+  ChunkFeature,
+  DetailBudgetProfile,
+} from './types';
 
 export interface DetailBudgetConfig {
   readonly profile: DetailBudgetProfile;
@@ -546,7 +551,10 @@ export function computeEdgeBayLayout(
   const activeDetail = lod === 0 && exposed && edgeLengthMeters >= budget.minEdgeMeters;
   const pitch = baseBayPitchForStyle(style) * budget.bayPitchScale;
   const panels = activeDetail
-    ? Math.max(1, Math.min(budget.maxBaysPerEdge, Math.round(edgeLengthMeters / Math.max(1.2, pitch))))
+    ? Math.max(
+        1,
+        Math.min(budget.maxBaysPerEdge, Math.round(edgeLengthMeters / Math.max(1.2, pitch))),
+      )
     : lod === 1 && exposed && edgeLengthMeters >= 7.0
       ? 2
       : 1;
@@ -622,8 +630,10 @@ export function wantsBalconyOnBayFloor(
   }
   return (
     (pattern === 0 && floor === 1 && !style.isChalet && (isPrimaryEdge || bay % 2 === 0)) ||
-    (pattern === 1 && (isCenterBay || (panels >= 4 && bay % 2 === 1)) && floor <= 4 && isPrimaryEdge) ||
+    (pattern === 1 &&
+      (isCenterBay || (panels >= 4 && bay % 2 === 1)) &&
+      floor <= 4 &&
+      isPrimaryEdge) ||
     (pattern === 2 && (floor + bay) % 2 === 1 && (isPrimaryEdge || floor <= 3))
   );
 }
-

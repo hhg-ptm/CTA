@@ -1,11 +1,7 @@
 import { BuildingGeometryWriter, type BuildingColor, type BuildingUv } from './building-geometry';
 import { insetPolygon, ringSignedArea } from './polygon-holes';
 import { sampleHeight, type RoadPoint, type RoadPoint3 } from './road-geometry';
-import {
-  isTowerFeature,
-  type BuildingStyleSpec,
-  type DetailBudgetConfig,
-} from './building-styles';
+import { isTowerFeature, type BuildingStyleSpec, type DetailBudgetConfig } from './building-styles';
 import type { BuiltTerrainChunk, BuildingMaterial, ChunkFeature, ProjectedBounds } from './types';
 
 export interface VolumeItem {
@@ -157,7 +153,22 @@ function addProjectingBoxRib(
   color: BuildingColor,
   uv: [BuildingUv, BuildingUv, BuildingUv, BuildingUv],
 ): void {
-  addProjectingBox(writer, material, a, b, outward, y0A, y0B, y1A, y1B, depth, color, color, uv, false);
+  addProjectingBox(
+    writer,
+    material,
+    a,
+    b,
+    outward,
+    y0A,
+    y0B,
+    y1A,
+    y1B,
+    depth,
+    color,
+    color,
+    uv,
+    false,
+  );
 }
 
 /**
@@ -185,13 +196,12 @@ export function addRecessedWindowCell(
   const { style, seed } = item;
   const uvRow = style.atlasBand * 2 + (floorIndex === 0 && !isSetback ? 0 : 1);
   const wallUv = solidTrimUv(7, uvRow);
-  const { s: pS, e: pE, gS, gE } = orientSpan(
-    panelStart,
-    panelEnd,
-    groundStart,
-    groundEnd,
-    outward,
-  );
+  const {
+    s: pS,
+    e: pE,
+    gS,
+    gE,
+  } = orientSpan(panelStart, panelEnd, groundStart, groundEnd, outward);
   const panelLen = Math.hypot(pE[0] - pS[0], pE[1] - pS[1]);
   const floorH = floorTop - floorBottom;
   const minCellWidth = budget ? Math.min(2.45, Math.max(1.12, budget.minEdgeMeters * 0.92)) : 2.45;
@@ -219,7 +229,12 @@ export function addRecessedWindowCell(
   ) {
     writer.addQuad(
       style.wallMaterial,
-      [wp(pS, gS + floorBottom), wp(pE, gE + floorBottom), wp(pE, gE + floorTop), wp(pS, gS + floorTop)],
+      [
+        wp(pS, gS + floorBottom),
+        wp(pE, gE + floorBottom),
+        wp(pE, gE + floorTop),
+        wp(pS, gS + floorTop),
+      ],
       style.tint,
       wallUv,
     );
@@ -308,19 +323,34 @@ export function addRecessedWindowCell(
   };
   writer.addQuad(
     style.wallMaterial,
-    [wp(pS, gS + floorBottom), wp(wS, wgS + floorBottom), wp(wS, wgS + floorTop), wp(pS, gS + floorTop)],
+    [
+      wp(pS, gS + floorBottom),
+      wp(wS, wgS + floorBottom),
+      wp(wS, wgS + floorTop),
+      wp(pS, gS + floorTop),
+    ],
     style.tint,
     subUv(0, uWin0, 0, 1),
   );
   writer.addQuad(
     style.wallMaterial,
-    [wp(wE, wgE + floorBottom), wp(pE, gE + floorBottom), wp(pE, gE + floorTop), wp(wE, wgE + floorTop)],
+    [
+      wp(wE, wgE + floorBottom),
+      wp(pE, gE + floorBottom),
+      wp(pE, gE + floorTop),
+      wp(wE, wgE + floorTop),
+    ],
     style.tint,
     subUv(uWin1, 1, 0, 1),
   );
   writer.addQuad(
     style.wallMaterial,
-    [wp(wS, wgS + floorBottom), wp(wE, wgE + floorBottom), wp(wE, wgE + yWin0), wp(wS, wgS + yWin0)],
+    [
+      wp(wS, wgS + floorBottom),
+      wp(wE, wgE + floorBottom),
+      wp(wE, wgE + yWin0),
+      wp(wS, wgS + yWin0),
+    ],
     style.tint,
     subUv(uWin0, uWin1, 0, sillFrac),
   );
@@ -452,8 +482,23 @@ export function addRecessedWindowCell(
       const gl1 = gS + (gE - gS) * uWin0;
       const jl0o: RoadPoint = [jl0[0] + outward[0] * jDepth, jl0[1] + outward[1] * jDepth];
       const jl1o: RoadPoint = [jl1[0] + outward[0] * jDepth, jl1[1] + outward[1] * jDepth];
-      writer.addQuad(style.wallMaterial, [wp(jl0o, gl0 + yWin0), wp(jl1o, gl1 + yWin0), wp(jl1o, gl1 + yWin1), wp(jl0o, gl0 + yWin1)], style.trimColor, frameUv);
-      writer.addQuad(style.wallMaterial, [wp(jl0, gl0 + yWin0), wp(jl0o, gl0 + yWin0), wp(jl0o, gl0 + yWin1), wp(jl0, gl0 + yWin1)], style.plinthColor, frameUv);
+      writer.addQuad(
+        style.wallMaterial,
+        [
+          wp(jl0o, gl0 + yWin0),
+          wp(jl1o, gl1 + yWin0),
+          wp(jl1o, gl1 + yWin1),
+          wp(jl0o, gl0 + yWin1),
+        ],
+        style.trimColor,
+        frameUv,
+      );
+      writer.addQuad(
+        style.wallMaterial,
+        [wp(jl0, gl0 + yWin0), wp(jl0o, gl0 + yWin0), wp(jl0o, gl0 + yWin1), wp(jl0, gl0 + yWin1)],
+        style.plinthColor,
+        frameUv,
+      );
 
       const jr0 = lerpPoint(pS, pE, uWin1);
       const jr1 = lerpPoint(pS, pE, uWin1 + jFrac);
@@ -461,8 +506,23 @@ export function addRecessedWindowCell(
       const gr1 = gS + (gE - gS) * (uWin1 + jFrac);
       const jr0o: RoadPoint = [jr0[0] + outward[0] * jDepth, jr0[1] + outward[1] * jDepth];
       const jr1o: RoadPoint = [jr1[0] + outward[0] * jDepth, jr1[1] + outward[1] * jDepth];
-      writer.addQuad(style.wallMaterial, [wp(jr0o, gr0 + yWin0), wp(jr1o, gr1 + yWin0), wp(jr1o, gr1 + yWin1), wp(jr0o, gr0 + yWin1)], style.trimColor, frameUv);
-      writer.addQuad(style.wallMaterial, [wp(jr1o, gr1 + yWin0), wp(jr1, gr1 + yWin0), wp(jr1, gr1 + yWin1), wp(jr1o, gr1 + yWin1)], style.plinthColor, frameUv);
+      writer.addQuad(
+        style.wallMaterial,
+        [
+          wp(jr0o, gr0 + yWin0),
+          wp(jr1o, gr1 + yWin0),
+          wp(jr1o, gr1 + yWin1),
+          wp(jr0o, gr0 + yWin1),
+        ],
+        style.trimColor,
+        frameUv,
+      );
+      writer.addQuad(
+        style.wallMaterial,
+        [wp(jr1o, gr1 + yWin0), wp(jr1, gr1 + yWin0), wp(jr1, gr1 + yWin1), wp(jr1o, gr1 + yWin1)],
+        style.plinthColor,
+        frameUv,
+      );
     }
   }
 
@@ -483,7 +543,12 @@ export function addRecessedWindowCell(
           : [0.28, 0.22, 0.17];
     writer.addQuad(
       style.wallMaterial,
-      [wp(mSo, mgS + yWin0 + 0.02), wp(mEo, mgE + yWin0 + 0.02), wp(mEo, mgE + yWin1 - 0.02), wp(mSo, mgS + yWin1 - 0.02)],
+      [
+        wp(mSo, mgS + yWin0 + 0.02),
+        wp(mEo, mgE + yWin0 + 0.02),
+        wp(mEo, mgE + yWin1 - 0.02),
+        wp(mSo, mgS + yWin1 - 0.02),
+      ],
       barColor,
       frameUv,
     );
@@ -493,7 +558,12 @@ export function addRecessedWindowCell(
       const wEoBar: RoadPoint = [wE[0] + outward[0] * barOut, wE[1] + outward[1] * barOut];
       writer.addQuad(
         style.wallMaterial,
-        [wp(wSoBar, wgS + yTransom - 0.03), wp(wEoBar, wgE + yTransom - 0.03), wp(wEoBar, wgE + yTransom + 0.03), wp(wSoBar, wgS + yTransom + 0.03)],
+        [
+          wp(wSoBar, wgS + yTransom - 0.03),
+          wp(wEoBar, wgE + yTransom - 0.03),
+          wp(wEoBar, wgE + yTransom + 0.03),
+          wp(wSoBar, wgS + yTransom + 0.03),
+        ],
         barColor,
         frameUv,
       );
@@ -573,10 +643,50 @@ export function addRecessedWindowCell(
     const wSoSh: RoadPoint = [wS[0] + outward[0] * shDepth, wS[1] + outward[1] * shDepth];
     const wEoSh: RoadPoint = [wE[0] + outward[0] * shDepth, wE[1] + outward[1] * shDepth];
     const rEo: RoadPoint = [rE[0] + outward[0] * shDepth, rE[1] + outward[1] * shDepth];
-    writer.addQuad(style.wallMaterial, [wp(lSo, lgS + yWin0 + 0.02), wp(wSoSh, wgS + yWin0 + 0.02), wp(wSoSh, wgS + yWin1 - 0.02), wp(lSo, lgS + yWin1 - 0.02)], shColor, revealUv);
-    writer.addQuad(style.wallMaterial, [wp(lS, lgS + yWin0 + 0.02), wp(lSo, lgS + yWin0 + 0.02), wp(lSo, lgS + yWin1 - 0.02), wp(lS, lgS + yWin1 - 0.02)], darken(shColor, 0.8), revealUv);
-    writer.addQuad(style.wallMaterial, [wp(wEoSh, wgE + yWin0 + 0.02), wp(rEo, rgE + yWin0 + 0.02), wp(rEo, rgE + yWin1 - 0.02), wp(wEoSh, wgE + yWin1 - 0.02)], shColor, revealUv);
-    writer.addQuad(style.wallMaterial, [wp(rEo, rgE + yWin0 + 0.02), wp(rE, rgE + yWin0 + 0.02), wp(rE, rgE + yWin1 - 0.02), wp(rEo, rgE + yWin1 - 0.02)], darken(shColor, 0.8), revealUv);
+    writer.addQuad(
+      style.wallMaterial,
+      [
+        wp(lSo, lgS + yWin0 + 0.02),
+        wp(wSoSh, wgS + yWin0 + 0.02),
+        wp(wSoSh, wgS + yWin1 - 0.02),
+        wp(lSo, lgS + yWin1 - 0.02),
+      ],
+      shColor,
+      revealUv,
+    );
+    writer.addQuad(
+      style.wallMaterial,
+      [
+        wp(lS, lgS + yWin0 + 0.02),
+        wp(lSo, lgS + yWin0 + 0.02),
+        wp(lSo, lgS + yWin1 - 0.02),
+        wp(lS, lgS + yWin1 - 0.02),
+      ],
+      darken(shColor, 0.8),
+      revealUv,
+    );
+    writer.addQuad(
+      style.wallMaterial,
+      [
+        wp(wEoSh, wgE + yWin0 + 0.02),
+        wp(rEo, rgE + yWin0 + 0.02),
+        wp(rEo, rgE + yWin1 - 0.02),
+        wp(wEoSh, wgE + yWin1 - 0.02),
+      ],
+      shColor,
+      revealUv,
+    );
+    writer.addQuad(
+      style.wallMaterial,
+      [
+        wp(rEo, rgE + yWin0 + 0.02),
+        wp(rE, rgE + yWin0 + 0.02),
+        wp(rE, rgE + yWin1 - 0.02),
+        wp(rEo, rgE + yWin1 - 0.02),
+      ],
+      darken(shColor, 0.8),
+      revealUv,
+    );
   }
 }
 
@@ -691,18 +801,48 @@ export function addCornerQuoins(
     const gsEnd = gS + (gE - gS) * frac;
     const so: RoadPoint = [s[0] + outward[0] * depth, s[1] + outward[1] * depth];
     const sEndo: RoadPoint = [sEnd[0] + outward[0] * depth, sEnd[1] + outward[1] * depth];
-    writer.addQuad(style.wallMaterial, [wp(so, gS + y0), wp(sEndo, gsEnd + y0), wp(sEndo, gsEnd + y1), wp(so, gS + y1)], style.plinthColor, quoinUv);
-    writer.addQuad(style.wallMaterial, [wp(so, gS + y1), wp(sEndo, gsEnd + y1), wp(sEnd, gsEnd + y1), wp(s, gS + y1)], darken(style.plinthColor, 0.9), quoinUv);
-    writer.addQuad(style.wallMaterial, [wp(s, gS + y0), wp(so, gS + y0), wp(so, gS + y1), wp(s, gS + y1)], darken(style.plinthColor, 0.84), quoinUv);
+    writer.addQuad(
+      style.wallMaterial,
+      [wp(so, gS + y0), wp(sEndo, gsEnd + y0), wp(sEndo, gsEnd + y1), wp(so, gS + y1)],
+      style.plinthColor,
+      quoinUv,
+    );
+    writer.addQuad(
+      style.wallMaterial,
+      [wp(so, gS + y1), wp(sEndo, gsEnd + y1), wp(sEnd, gsEnd + y1), wp(s, gS + y1)],
+      darken(style.plinthColor, 0.9),
+      quoinUv,
+    );
+    writer.addQuad(
+      style.wallMaterial,
+      [wp(s, gS + y0), wp(so, gS + y0), wp(so, gS + y1), wp(s, gS + y1)],
+      darken(style.plinthColor, 0.84),
+      quoinUv,
+    );
 
     // End corner quoin
     const eStart = lerpPoint(s, e, 1 - frac);
     const geStart = gS + (gE - gS) * (1 - frac);
     const eo: RoadPoint = [e[0] + outward[0] * depth, e[1] + outward[1] * depth];
     const eStarto: RoadPoint = [eStart[0] + outward[0] * depth, eStart[1] + outward[1] * depth];
-    writer.addQuad(style.wallMaterial, [wp(eStarto, geStart + y0), wp(eo, gE + y0), wp(eo, gE + y1), wp(eStarto, geStart + y1)], style.plinthColor, quoinUv);
-    writer.addQuad(style.wallMaterial, [wp(eStarto, geStart + y1), wp(eo, gE + y1), wp(e, gE + y1), wp(eStart, geStart + y1)], darken(style.plinthColor, 0.9), quoinUv);
-    writer.addQuad(style.wallMaterial, [wp(eo, gE + y0), wp(e, gE + y0), wp(e, gE + y1), wp(eo, gE + y1)], darken(style.plinthColor, 0.84), quoinUv);
+    writer.addQuad(
+      style.wallMaterial,
+      [wp(eStarto, geStart + y0), wp(eo, gE + y0), wp(eo, gE + y1), wp(eStarto, geStart + y1)],
+      style.plinthColor,
+      quoinUv,
+    );
+    writer.addQuad(
+      style.wallMaterial,
+      [wp(eStarto, geStart + y1), wp(eo, gE + y1), wp(e, gE + y1), wp(eStart, geStart + y1)],
+      darken(style.plinthColor, 0.9),
+      quoinUv,
+    );
+    writer.addQuad(
+      style.wallMaterial,
+      [wp(eo, gE + y0), wp(e, gE + y0), wp(e, gE + y1), wp(eo, gE + y1)],
+      darken(style.plinthColor, 0.84),
+      quoinUv,
+    );
   }
 }
 
@@ -920,8 +1060,14 @@ export function addProjectingMiradorColumn(
   const mEo: RoadPoint = [mE[0] + outward[0] * depth, mE[1] + outward[1] * depth];
   const mSGl: RoadPoint = [mS[0] + outward[0] * 0.06, mS[1] + outward[1] * 0.06];
   const mEGl: RoadPoint = [mE[0] + outward[0] * 0.06, mE[1] + outward[1] * 0.06];
-  const mSoIn: RoadPoint = [mS[0] + outward[0] * (depth - 0.06), mS[1] + outward[1] * (depth - 0.06)];
-  const mEoIn: RoadPoint = [mE[0] + outward[0] * (depth - 0.06), mE[1] + outward[1] * (depth - 0.06)];
+  const mSoIn: RoadPoint = [
+    mS[0] + outward[0] * (depth - 0.06),
+    mS[1] + outward[1] * (depth - 0.06),
+  ];
+  const mEoIn: RoadPoint = [
+    mE[0] + outward[0] * (depth - 0.06),
+    mE[1] + outward[1] * (depth - 0.06),
+  ];
 
   // Per-floor glazed bays + bright contrasting clad spandrel bands + side glazing
   for (let floor = 1; floor < floors; floor += 1) {
@@ -949,19 +1095,34 @@ export function addProjectingMiradorColumn(
     // Front & side glass panels
     writer.addQuad(
       style.wallMaterial,
-      [wp(mSoIn, mgS + apronTop), wp(mEoIn, mgE + apronTop), wp(mEoIn, mgE + glassTop), wp(mSoIn, mgS + glassTop)],
+      [
+        wp(mSoIn, mgS + apronTop),
+        wp(mEoIn, mgE + apronTop),
+        wp(mEoIn, mgE + glassTop),
+        wp(mSoIn, mgS + glassTop),
+      ],
       [1, 1, 1],
       glassUv,
     );
     writer.addQuad(
       style.wallMaterial,
-      [wp(mSGl, mgS + apronTop), wp(mSoIn, mgS + apronTop), wp(mSoIn, mgS + glassTop), wp(mSGl, mgS + glassTop)],
+      [
+        wp(mSGl, mgS + apronTop),
+        wp(mSoIn, mgS + apronTop),
+        wp(mSoIn, mgS + glassTop),
+        wp(mSGl, mgS + glassTop),
+      ],
       [0.92, 0.96, 1],
       glassUv,
     );
     writer.addQuad(
       style.wallMaterial,
-      [wp(mEoIn, mgE + apronTop), wp(mEGl, mgE + apronTop), wp(mEGl, mgE + glassTop), wp(mEoIn, mgE + glassTop)],
+      [
+        wp(mEoIn, mgE + apronTop),
+        wp(mEGl, mgE + apronTop),
+        wp(mEGl, mgE + glassTop),
+        wp(mEoIn, mgE + glassTop),
+      ],
       [0.92, 0.96, 1],
       glassUv,
     );
@@ -973,7 +1134,12 @@ export function addProjectingMiradorColumn(
     const midGb = mgS + (mgE - mgS) * (0.5 + mulHalf);
     writer.addQuad(
       style.wallMaterial,
-      [wp(midA, midGa + apronTop), wp(midB, midGb + apronTop), wp(midB, midGb + glassTop), wp(midA, midGa + glassTop)],
+      [
+        wp(midA, midGa + apronTop),
+        wp(midB, midGb + apronTop),
+        wp(midB, midGb + glassTop),
+        wp(midA, midGa + glassTop),
+      ],
       frameColor,
       trimUv,
     );
@@ -1023,7 +1189,10 @@ export function addProjectingMiradorColumn(
 
   // Overhanging stepped zinc/copper pyramid cap on top of Mirador
   const capColor: BuildingColor = style.isHistoric ? [0.46, 0.36, 0.32] : [0.32, 0.35, 0.39];
-  const midBack: RoadPoint = [(mS[0] + mE[0]) * 0.5 + outward[0] * (depth * 0.5), (mS[1] + mE[1]) * 0.5 + outward[1] * (depth * 0.5)];
+  const midBack: RoadPoint = [
+    (mS[0] + mE[0]) * 0.5 + outward[0] * (depth * 0.5),
+    (mS[1] + mE[1]) * 0.5 + outward[1] * (depth * 0.5),
+  ];
   const midPeakY = (mgS + mgE) * 0.5 + capTop + 0.36;
   const cSo: RoadPoint = [mSo[0] + outward[0] * 0.05, mSo[1] + outward[1] * 0.05];
   const cEo: RoadPoint = [mEo[0] + outward[0] * 0.05, mEo[1] + outward[1] * 0.05];
@@ -1067,7 +1236,9 @@ export function addCorniceCorbels(
     !exposed ||
     isSetback ||
     item.shape === 'flat' ||
-    (!style.isHistoric && style.archetype !== 'ensanche_brick' && style.archetype !== 'ensanche_cream')
+    (!style.isHistoric &&
+      style.archetype !== 'ensanche_brick' &&
+      style.archetype !== 'ensanche_cream')
   ) {
     return;
   }
@@ -1375,8 +1546,7 @@ function addFlatRoofParapetWalls(
     const dz = b[1] - a[1];
     const len = Math.hypot(dx, dz);
     if (len < 0.8) continue;
-    const outward: RoadPoint =
-      signedArea >= 0 ? [dz / len, -dx / len] : [-dz / len, dx / len];
+    const outward: RoadPoint = signedArea >= 0 ? [dz / len, -dx / len] : [-dz / len, dx / len];
     const { s, e, gS, gE } = orientSpan(a, b, groundAt(terrain, a), groundAt(terrain, b), outward);
     const roofS = gS + baseOffset + wallHeight;
     const roofE = gE + baseOffset + wallHeight;
@@ -1478,15 +1648,37 @@ function addGableRidgeBeam(
   const bL: RoadPoint = [rB[0] - nX * ridgeHalfW, rB[1] - nZ * ridgeHalfW];
   const bR: RoadPoint = [rB[0] + nX * ridgeHalfW, rB[1] + nZ * ridgeHalfW];
   const uv = solidTrimUv(7, 0);
-  const ridgeColor: BuildingColor = item.style.isIndustrial ? [0.5, 0.54, 0.58] : [0.76, 0.36, 0.22];
+  const ridgeColor: BuildingColor = item.style.isIndustrial
+    ? [0.5, 0.54, 0.58]
+    : [0.76, 0.36, 0.22];
   const capH = 0.14;
   const mat = item.style.roofMaterial;
 
   // Sloped crest cap ridge prism sitting atop peak
-  writer.addQuad(mat, [wp(aL, yA - 0.04), wp(bL, yB - 0.04), wp(rB, yB + capH), wp(rA, yA + capH)], ridgeColor, uv);
-  writer.addQuad(mat, [wp(rA, yA + capH), wp(rB, yB + capH), wp(bR, yB - 0.04), wp(aR, yA - 0.04)], darken(ridgeColor, 0.88), uv);
-  writer.addTriangle(mat, [wp(aL, yA - 0.04), wp(rA, yA + capH), wp(aR, yA - 0.04)], darken(ridgeColor, 0.82), [uv[0], uv[1], uv[2]]);
-  writer.addTriangle(mat, [wp(bR, yB - 0.04), wp(rB, yB + capH), wp(bL, yB - 0.04)], darken(ridgeColor, 0.82), [uv[0], uv[1], uv[2]]);
+  writer.addQuad(
+    mat,
+    [wp(aL, yA - 0.04), wp(bL, yB - 0.04), wp(rB, yB + capH), wp(rA, yA + capH)],
+    ridgeColor,
+    uv,
+  );
+  writer.addQuad(
+    mat,
+    [wp(rA, yA + capH), wp(rB, yB + capH), wp(bR, yB - 0.04), wp(aR, yA - 0.04)],
+    darken(ridgeColor, 0.88),
+    uv,
+  );
+  writer.addTriangle(
+    mat,
+    [wp(aL, yA - 0.04), wp(rA, yA + capH), wp(aR, yA - 0.04)],
+    darken(ridgeColor, 0.82),
+    [uv[0], uv[1], uv[2]],
+  );
+  writer.addTriangle(
+    mat,
+    [wp(bR, yB - 0.04), wp(rB, yB + capH), wp(bL, yB - 0.04)],
+    darken(ridgeColor, 0.82),
+    [uv[0], uv[1], uv[2]],
+  );
 }
 
 /**
@@ -1595,7 +1787,9 @@ export function addStylizedRoof(
     }
     if (detailed && opts.enableRidgeAndParapets && top.length >= 3) {
       // Hipped peak finial cap
-      const ridgeCapColor: BuildingColor = item.style.isIndustrial ? [0.5, 0.54, 0.58] : [0.76, 0.36, 0.22];
+      const ridgeCapColor: BuildingColor = item.style.isIndustrial
+        ? [0.5, 0.54, 0.58]
+        : [0.76, 0.36, 0.22];
       const c = item.centroid;
       const r = 0.22;
       const baseCapY = centerY - 0.04;
@@ -1611,7 +1805,11 @@ export function addStylizedRoof(
         const pA = corners[i];
         const pB = corners[(i + 1) % 4];
         if (pA && pB) {
-          writer.addTriangle(mat, [pB, pA, peakCap], ridgeCapColor, [fasciaUv[0], fasciaUv[1], fasciaUv[2]]);
+          writer.addTriangle(mat, [pB, pA, peakCap], ridgeCapColor, [
+            fasciaUv[0],
+            fasciaUv[1],
+            fasciaUv[2],
+          ]);
         }
       }
     }

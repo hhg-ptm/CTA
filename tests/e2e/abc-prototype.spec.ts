@@ -155,10 +155,10 @@ test('runs A/B/C budget benchmark (600k vs 1.2M vs 2.0M) on identical blocks and
           const m = window.__CTA_DEBUG__?.metrics();
           return Boolean(
             m &&
-              Math.hypot(m.position.x - px, m.position.z - pz) < 2 &&
-              m.groundHeight !== null &&
-              m.groundHeight > 380 &&
-              m.pendingChunks === 0,
+            Math.hypot(m.position.x - px, m.position.z - pz) < 2 &&
+            m.groundHeight !== null &&
+            m.groundHeight > 380 &&
+            m.pendingChunks === 0,
           );
         },
         { px: sector.player.x, pz: sector.player.z },
@@ -184,7 +184,10 @@ test('runs A/B/C budget benchmark (600k vs 1.2M vs 2.0M) on identical blocks and
                 if (times.length >= 24) {
                   const total = (times.at(-1) ?? 0) - (times[0] ?? 0);
                   const avg = total / Math.max(1, times.length - 1);
-                  res({ frameMsAvg: Number(avg.toFixed(2)), rafFps: Math.round(1000 / Math.max(1, avg)) });
+                  res({
+                    frameMsAvg: Number(avg.toFixed(2)),
+                    rafFps: Math.round(1000 / Math.max(1, avg)),
+                  });
                   return;
                 }
                 requestAnimationFrame(step);
