@@ -18,9 +18,29 @@ import {
 } from './road-geometry';
 import { addCrossingAndControlMarkings, addLaneMarkings } from './road-markings';
 
-const CURB_WIDTH = 0.2;
+const CURB_WIDTH = 0.22;
 const SIDEWALK_WIDTH = 1.65;
-const ROAD_LIFT = 0.055;
+const ROAD_LIFT = 0.28;
+
+function subdividePolyline(line: readonly RoadPoint[], maxStepMeters: number): RoadPoint[] {
+  if (line.length < 2) return [...line];
+  const result: RoadPoint[] = [line[0]!];
+  for (let i = 1; i < line.length; i += 1) {
+    const prev = line[i - 1];
+    const curr = line[i];
+    if (!prev || !curr) continue;
+    const dist = Math.hypot(curr[0] - prev[0], curr[1] - prev[1]);
+    if (dist > maxStepMeters) {
+      const steps = Math.ceil(dist / maxStepMeters);
+      for (let s = 1; s < steps; s += 1) {
+        const t = s / steps;
+        result.push([prev[0] + (curr[0] - prev[0]) * t, prev[1] + (curr[1] - prev[1]) * t]);
+      }
+    }
+    result.push(curr);
+  }
+  return result;
+}
 
 export function buildRoadChunk(
   features: readonly ChunkFeature[],
@@ -53,10 +73,11 @@ export function buildRoadChunk(
     const lift = road.tunnel ? ROAD_LIFT + 0.015 : ROAD_LIFT;
     const offsetAt = road.bridge ? bridgeOffset(centerline) : undefined;
     if (road.featureType === 'pedestrian' && road.area) {
+      const areaLift = (road.points?.length ?? 0) > 6 ? lift + 0.16 : lift;
       builderFor(roadStyle(road)).addPolygon(
         road.points ?? [],
         bounds,
-        lift,
+        areaLift,
         `${road.id ?? 'pedestrian'}:area`,
       );
       continue;
@@ -137,11 +158,12 @@ function addCorridor(
   offsetAt?: (point: RoadPoint) => number,
   sideRange?: readonly [number, number],
 ): void {
+  const denseLine = subdividePolyline(line, 4.0);
   const leftOffset = sideRange?.[1] ?? width / 2;
   const rightOffset = sideRange?.[0] ?? -width / 2;
-  const left = offsetPolyline(line, leftOffset);
-  const right = offsetPolyline(line, rightOffset);
-  for (let index = 0; index < line.length - 1; index += 1) {
+  const left = offsetPolyline(denseLine, leftOffset);
+  const right = offsetPolyline(denseLine, rightOffset);
+  for (let index = 0; index < denseLine.length - 1; index += 1) {
     const a = left[index];
     const b = left[index + 1];
     const c = right[index + 1];

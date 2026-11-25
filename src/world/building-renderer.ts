@@ -54,17 +54,21 @@ export class BuildingRenderer {
     buildings: BuiltBuildingChunk | undefined,
     centerX: number,
     centerZ: number,
+    lod0CastShadowDirect = false,
   ): THREE.Mesh[][] {
     if (!buildings) return [];
     const lod2Surfaces = buildings.levels[2]?.surfaces ?? buildings.levels[1]?.surfaces ?? [];
-    const proxyGeom = lod2Surfaces.length > 0 ? shadowProxyGeometry(lod2Surfaces) : undefined;
+    const proxyGeom =
+      !lod0CastShadowDirect && lod2Surfaces.length > 0
+        ? shadowProxyGeometry(lod2Surfaces)
+        : undefined;
     return buildings.levels.map((level, levelIndex) => {
       const meshes: THREE.Mesh[] = level.surfaces.flatMap((surface) => {
         const material = this.materials.get(surface.material);
         if (!material || surface.indices.length === 0) return [];
         const mesh = new THREE.Mesh(buildingGeometry(surface), material);
         mesh.position.set(centerX, 0, centerZ);
-        mesh.castShadow = levelIndex > 0 || !proxyGeom;
+        mesh.castShadow = levelIndex > 0 || lod0CastShadowDirect || !proxyGeom;
         mesh.receiveShadow = true;
         mesh.visible = false;
         return [mesh];

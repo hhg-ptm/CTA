@@ -3,12 +3,12 @@ import * as THREE from 'three';
 export type GroundMaterial = 'grass' | 'stone' | 'asphalt' | 'soil' | 'rock' | 'water';
 
 export const GROUND_COLORS: Readonly<Record<GroundMaterial, readonly [number, number, number]>> = {
-  grass: [0.3, 0.4, 0.28],
-  stone: [0.53, 0.49, 0.41],
-  asphalt: [0.24, 0.27, 0.25],
-  soil: [0.48, 0.37, 0.26],
-  rock: [0.47, 0.46, 0.42],
-  water: [0.18, 0.32, 0.37],
+  grass: [0.35, 0.49, 0.27],
+  stone: [0.58, 0.54, 0.45],
+  asphalt: [0.25, 0.27, 0.28],
+  soil: [0.52, 0.41, 0.29],
+  rock: [0.5, 0.48, 0.43],
+  water: [0.2, 0.38, 0.45],
 };
 
 export function createTerrainDetailTexture(): THREE.CanvasTexture {

@@ -92,60 +92,58 @@ def _cell_rgb(col: int, row: int, u: float, v: float, seed: int) -> tuple[float,
     key = (col, row)
 
     if key == SW_GRANITE:
-        mortar = v < 0.1 or (abs(u - 0.5) < 0.04 and v < 0.5) or (u < 0.05 and v >= 0.5)
-        base = (0.58, 0.51, 0.41) if mortar else (0.78, 0.71, 0.57)
-        return (base[0] + grain, base[1] + grain, base[2] + grain)
+        # Clean Stylized granite ashlar wash without harsh dark grid noise
+        band = -0.025 if int(v * 3) % 2 == 0 else 0.025
+        base = (0.83 + band, 0.75 + band, 0.60 + band)
+        return (base[0] + grain * 0.4, base[1] + grain * 0.4, base[2] + grain * 0.4)
     if key == SW_DARK_STONE:
-        return (0.31 + grain, 0.30 + grain, 0.28 + grain)
+        return (0.34 + grain * 0.4, 0.33 + grain * 0.4, 0.31 + grain * 0.4)
     if key == SW_IRON:
-        return (0.14 + grain * 0.3, 0.15 + grain * 0.3, 0.17 + grain * 0.3)
+        return (0.15 + grain * 0.2, 0.16 + grain * 0.2, 0.19 + grain * 0.2)
     if key == SW_SHUTTER_GREEN:
-        slat = -0.04 if int(v * 10) % 2 == 0 else 0.03
-        return (0.19 + slat, 0.38 + slat, 0.24 + slat * 0.5)
+        slat = -0.03 if int(v * 10) % 2 == 0 else 0.03
+        return (0.21 + slat, 0.44 + slat, 0.28 + slat * 0.5)
     if key == SW_WOOD:
-        streak = -0.03 if int(u * 8) % 2 == 0 else 0.03
-        return (0.44 + streak, 0.27 + streak * 0.7, 0.15 + streak * 0.4)
+        streak = -0.025 if int(u * 6) % 2 == 0 else 0.025
+        return (0.48 + streak, 0.30 + streak * 0.7, 0.17 + streak * 0.4)
     if key == SW_TILE:
-        rib = math.sin(u * math.pi * 6.0) * 0.05
-        return (0.74 + rib + grain, 0.35 + rib * 0.5, 0.21)
+        rib = math.sin(u * math.pi * 6.0) * 0.04
+        return (0.82 + rib + grain * 0.5, 0.41 + rib * 0.5, 0.24)
     if key == SW_PLASTER_WHITE:
-        return (0.95 + grain * 0.3, 0.92 + grain * 0.3, 0.86 + grain * 0.3)
+        return (0.96 + grain * 0.2, 0.93 + grain * 0.2, 0.87 + grain * 0.2)
     if key == SW_OCHRE:
-        return (0.87 + grain * 0.4, 0.71 + grain * 0.4, 0.46 + grain * 0.3)
+        return (0.90 + grain * 0.3, 0.74 + grain * 0.3, 0.49 + grain * 0.2)
     if key == SW_GLASS:
-        sheen = 0.22 if (0.20 < (u + v) * 0.5 < 0.36 or 0.56 < (u + v) * 0.5 < 0.65) else 0.0
-        grad = (1.0 - v) * 0.10
-        return (0.16 + sheen + grad * 0.6, 0.42 + sheen + grad, 0.62 + sheen + grad * 1.1)
+        sheen = 0.24 if (0.18 < (u + v) * 0.5 < 0.36 or 0.54 < (u + v) * 0.5 < 0.64) else 0.0
+        grad = (1.0 - v) * 0.12
+        return (0.19 + sheen + grad * 0.6, 0.49 + sheen + grad, 0.74 + sheen + grad * 1.1)
     if key == SW_GLASS_WARM:
-        sheen = 0.20 if 0.24 < (u + v) * 0.5 < 0.38 else 0.0
-        warm = 0.24 * (1.0 - v)
-        return (0.36 + warm + sheen, 0.34 + warm * 0.8 + sheen, 0.30 + sheen * 0.8)
+        sheen = 0.22 if 0.22 < (u + v) * 0.5 < 0.38 else 0.0
+        warm = 0.34 * (1.0 - v)
+        return (0.58 + warm + sheen, 0.49 + warm * 0.75 + sheen, 0.36 + sheen * 0.8)
     if key == SW_CONCRETE:
-        return (0.82 + grain * 0.3, 0.79 + grain * 0.3, 0.74 + grain * 0.3)
+        return (0.86 + grain * 0.2, 0.83 + grain * 0.2, 0.78 + grain * 0.2)
     if key == SW_STEEL:
-        rib = 0.04 if int(v * 8) % 2 == 0 else -0.03
-        return (0.64 + rib, 0.67 + rib, 0.71 + rib)
+        rib = 0.03 if int(v * 8) % 2 == 0 else -0.02
+        return (0.68 + rib, 0.71 + rib, 0.75 + rib)
     if key == SW_BRASS:
-        return (0.84, 0.64, 0.26)
+        return (0.88, 0.68, 0.28)
     if key in (SW_AWNING_RED, SW_AWNING_GREEN, SW_AWNING_MUSTARD, SW_AWNING_BLUE):
         stripe = int(u * 8) % 2 == 0
         if stripe:
-            return (0.95, 0.92, 0.85)
+            return (0.97, 0.94, 0.88)
         if key == SW_AWNING_RED:
-            return (0.68, 0.17, 0.18)
+            return (0.76, 0.20, 0.20)
         if key == SW_AWNING_GREEN:
-            return (0.16, 0.44, 0.24)
+            return (0.18, 0.50, 0.28)
         if key == SW_AWNING_BLUE:
-            return (0.18, 0.36, 0.66)
-        return (0.85, 0.62, 0.16)
+            return (0.20, 0.44, 0.78)
+        return (0.88, 0.65, 0.18)
     if key == SW_PERSIANA:
-        slat = -0.07 if int(v * 12) % 2 == 0 else 0.05
-        return (0.60 + slat, 0.58 + slat, 0.53 + slat)
+        slat = -0.05 if int(v * 12) % 2 == 0 else 0.04
+        return (0.66 + slat, 0.63 + slat, 0.58 + slat)
     if key == SW_BRICK:
-        mortar = (v * 6) % 1.0 < 0.18 or ((u * 4 + (0.5 if int(v * 6) % 2 else 0.0)) % 1.0) < 0.1
-        if mortar:
-            return (0.78, 0.72, 0.64)
-        return (0.68 + grain, 0.30 + grain * 0.4, 0.20 + grain * 0.3)
+        return (0.74 + grain * 0.3, 0.35 + grain * 0.2, 0.23 + grain * 0.2)
     if key == SW_ROLL_DOOR:
         rib = -0.06 if int(v * 14) % 2 == 0 else 0.05
         return (0.58 + rib, 0.62 + rib, 0.66 + rib)
@@ -411,74 +409,74 @@ def build_street_lamp_modern(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem,
 
 def build_tree_deciduous(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
     sides = 7 if lod == 0 else 5
-    add_cylinder(bm, uv, (0, 0, 0.98), 0.22, 0.13, 1.96, sides, SW_BARK)
-    add_cylinder(bm, uv, (0.24, 0, 1.92), 0.08, 0.04, 0.88, 5, SW_BARK, (0, 0.62, 0))
-    add_cylinder(bm, uv, (-0.22, 0.06, 1.88), 0.08, 0.04, 0.84, 5, SW_BARK, (0, -0.62, 0))
+    add_cylinder(bm, uv, (0, 0, 1.55), 0.32, 0.19, 3.10, sides, SW_BARK)
+    add_cylinder(bm, uv, (0.40, 0, 2.95), 0.11, 0.06, 1.35, 5, SW_BARK, (0, 0.62, 0))
+    add_cylinder(bm, uv, (-0.36, 0.10, 2.88), 0.11, 0.06, 1.25, 5, SW_BARK, (0, -0.62, 0))
     detail = 2 if lod == 0 else 1
-    add_ico(bm, uv, (0, 0, 2.95), 1.16, detail, SW_LEAVES_FRESH, (1.05, 1.0, 0.92))
-    add_ico(bm, uv, (0.58, 0.15, 2.60), 0.78, detail, SW_LEAVES_LIGHT)
-    add_ico(bm, uv, (-0.50, -0.24, 2.66), 0.74, detail, SW_LEAVES_FRESH)
+    add_ico(bm, uv, (0, 0, 4.55), 1.85, detail, SW_LEAVES_FRESH, (1.06, 1.02, 0.92))
+    add_ico(bm, uv, (0.92, 0.24, 4.02), 1.24, detail, SW_LEAVES_LIGHT)
+    add_ico(bm, uv, (-0.82, -0.34, 4.12), 1.18, detail, SW_LEAVES_FRESH)
     if lod == 0:
-        add_ico(bm, uv, (0.06, 0.08, 3.68), 0.68, detail, SW_LEAVES_SHRUB)
+        add_ico(bm, uv, (0.08, 0.14, 5.70), 1.08, detail, SW_LEAVES_SHRUB)
 
 
 def build_tree_oak(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
     # Broad umbrella Mediterranean holm oak ("encina extremeña")
     sides = 7 if lod == 0 else 5
-    add_cylinder(bm, uv, (0, 0, 0.88), 0.28, 0.18, 1.76, sides, SW_BARK)
-    add_cylinder(bm, uv, (0.42, 0.10, 1.65), 0.10, 0.05, 1.05, 5, SW_BARK, (-0.2, 0.75, 0))
-    add_cylinder(bm, uv, (-0.40, -0.15, 1.62), 0.10, 0.05, 1.00, 5, SW_BARK, (0.2, -0.75, 0))
+    add_cylinder(bm, uv, (0, 0, 1.35), 0.38, 0.24, 2.70, sides, SW_BARK)
+    add_cylinder(bm, uv, (0.64, 0.14, 2.55), 0.14, 0.07, 1.55, 5, SW_BARK, (-0.2, 0.75, 0))
+    add_cylinder(bm, uv, (-0.60, -0.22, 2.50), 0.14, 0.07, 1.48, 5, SW_BARK, (0.2, -0.75, 0))
     detail = 2 if lod == 0 else 1
-    add_ico(bm, uv, (0, 0, 2.65), 1.38, detail, SW_LEAVES_DARK, (1.28, 1.18, 0.68))
-    add_ico(bm, uv, (0.72, 0.18, 2.38), 0.92, detail, SW_LEAVES_LIGHT, (1.15, 1.10, 0.75))
-    add_ico(bm, uv, (-0.68, -0.22, 2.42), 0.88, detail, SW_LEAVES_DARK, (1.15, 1.10, 0.75))
+    add_ico(bm, uv, (0, 0, 4.05), 2.15, detail, SW_LEAVES_DARK, (1.28, 1.18, 0.68))
+    add_ico(bm, uv, (1.12, 0.28, 3.65), 1.42, detail, SW_LEAVES_LIGHT, (1.15, 1.10, 0.75))
+    add_ico(bm, uv, (-1.05, -0.34, 3.72), 1.36, detail, SW_LEAVES_DARK, (1.15, 1.10, 0.75))
     if lod == 0:
-        add_ico(bm, uv, (0.0, 0.12, 3.12), 0.84, 1, SW_LEAVES_LIGHT, (1.2, 1.05, 0.65))
+        add_ico(bm, uv, (0.0, 0.18, 4.82), 1.30, 1, SW_LEAVES_LIGHT, (1.2, 1.05, 0.65))
 
 
 def build_tree_pine(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
-    # Tiered Stylized Low Poly cone silhouette (matches foreground pines in Reference)
+    # Tall tiered Stylized Low Poly cone silhouette (matches foreground pines in Reference)
     sides = 7 if lod == 0 else 5
-    add_cylinder(bm, uv, (0, 0, 0.80), 0.20, 0.12, 1.60, sides, SW_BARK)
-    add_cylinder(bm, uv, (0, 0, 1.92), 1.25, 0.16, 1.55, sides, SW_LEAVES_PINE)
-    add_cylinder(bm, uv, (0, 0, 2.90), 0.98, 0.12, 1.40, sides, SW_LEAVES_SHRUB)
-    add_cylinder(bm, uv, (0, 0, 3.82), 0.68, 0.03, 1.25, sides, SW_LEAVES_PINE)
+    add_cylinder(bm, uv, (0, 0, 1.15), 0.28, 0.17, 2.30, sides, SW_BARK)
+    add_cylinder(bm, uv, (0, 0, 2.75), 1.85, 0.24, 2.25, sides, SW_LEAVES_PINE)
+    add_cylinder(bm, uv, (0, 0, 4.20), 1.46, 0.18, 2.05, sides, SW_LEAVES_SHRUB)
+    add_cylinder(bm, uv, (0, 0, 5.52), 1.02, 0.04, 1.85, sides, SW_LEAVES_PINE)
 
 
 def build_tree_palm(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
-    # Segmented curved trunk + arching starburst fronds
-    segs = 6 if lod == 0 else 4
+    # Tall curved Cáceres boulevard palm (~8.5m crown matching Cánovas scales)
+    segs = 7 if lod == 0 else 4
     sides = 6 if lod == 0 else 5
     for i in range(segs):
         t = i / segs
-        lean = math.sin(t * math.pi * 0.65) * 0.28
-        r1 = 0.20 * (1.0 - t * 0.35)
-        r2 = 0.20 * (1.0 - (t + 1 / segs) * 0.35)
-        add_cylinder(bm, uv, (lean, 0, 0.38 + i * 0.72), r1, r2, 0.76, sides, SW_BARK, (0, 0.08 * i, 0))
-    crown_x = math.sin(math.pi * 0.65) * 0.28
-    crown_z = 0.38 + (segs - 0.5) * 0.72
-    add_ico(bm, uv, (crown_x, 0, crown_z), 0.28, 1, SW_BARK)
+        lean = math.sin(t * math.pi * 0.65) * 0.42
+        r1 = 0.26 * (1.0 - t * 0.35)
+        r2 = 0.26 * (1.0 - (t + 1 / segs) * 0.35)
+        add_cylinder(bm, uv, (lean, 0, 0.55 + i * 1.10), r1, r2, 1.16, sides, SW_BARK, (0, 0.08 * i, 0))
+    crown_x = math.sin(math.pi * 0.65) * 0.42
+    crown_z = 0.55 + (segs - 0.5) * 1.10
+    add_ico(bm, uv, (crown_x, 0, crown_z), 0.40, 1, SW_BARK)
     fronds = 8 if lod == 0 else 5
     for i in range(fronds):
         ang = (2.0 * math.pi * i) / fronds
         tilt = 0.42 if i % 2 == 0 else 0.72
-        fx = crown_x + math.cos(ang) * 0.95
-        fy = math.sin(ang) * 0.95
-        fz = crown_z + 0.18 - tilt * 0.35
-        add_box(bm, uv, (fx, fy, fz), (1.75, 0.38, 0.08), SW_LEAVES_PALM, (0, tilt, ang))
+        fx = crown_x + math.cos(ang) * 1.42
+        fy = math.sin(ang) * 1.42
+        fz = crown_z + 0.26 - tilt * 0.52
+        add_box(bm, uv, (fx, fy, fz), (2.55, 0.54, 0.10), SW_LEAVES_PALM, (0, tilt, ang))
         if lod == 0:
-            tx = crown_x + math.cos(ang) * 1.90
-            ty = math.sin(ang) * 1.90
-            tz = fz - 0.42
-            add_box(bm, uv, (tx, ty, tz), (0.85, 0.26, 0.06), SW_LEAVES_SHRUB, (0, tilt + 0.45, ang))
+            tx = crown_x + math.cos(ang) * 2.82
+            ty = math.sin(ang) * 2.82
+            tz = fz - 0.62
+            add_box(bm, uv, (tx, ty, tz), (1.24, 0.38, 0.08), SW_LEAVES_SHRUB, (0, tilt + 0.45, ang))
 
 
 def build_tree_cypress(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
     sides = 7 if lod == 0 else 5
-    add_cylinder(bm, uv, (0, 0, 0.48), 0.14, 0.10, 0.96, 5, SW_BARK)
-    add_cylinder(bm, uv, (0, 0, 1.85), 0.44, 0.36, 1.90, sides, SW_LEAVES_CYPRESS)
-    add_cylinder(bm, uv, (0, 0, 3.45), 0.36, 0.20, 1.50, sides, SW_LEAVES_CYPRESS)
-    add_cylinder(bm, uv, (0, 0, 4.60), 0.20, 0.02, 0.90, sides, SW_LEAVES_DARK)
+    add_cylinder(bm, uv, (0, 0, 0.72), 0.20, 0.14, 1.44, 5, SW_BARK)
+    add_cylinder(bm, uv, (0, 0, 2.75), 0.66, 0.54, 2.80, sides, SW_LEAVES_CYPRESS)
+    add_cylinder(bm, uv, (0, 0, 5.10), 0.54, 0.30, 2.25, sides, SW_LEAVES_CYPRESS)
+    add_cylinder(bm, uv, (0, 0, 6.80), 0.30, 0.03, 1.35, sides, SW_LEAVES_DARK)
 
 
 def build_shrub(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
@@ -566,43 +564,57 @@ def build_sign(kind: str, bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lo
 # ---------------------------------------------------------------------------
 
 def build_chimney(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
-    add_box(bm, uv, (0, 0, 0.54), (0.58, 0.56, 1.48), SW_BRICK)
-    add_box(bm, uv, (0, 0, 1.32), (0.74, 0.72, 0.14), SW_CREAM_STONE)
-    add_box(bm, uv, (0, 0, 0.04), (0.66, 0.64, 0.16), SW_DARK_STONE)
+    add_box(bm, uv, (0, 0, 0.76), (0.68, 0.64, 1.96), SW_BRICK)
+    add_box(bm, uv, (0, 0, 1.78), (0.88, 0.84, 0.18), SW_CREAM_STONE)
+    add_box(bm, uv, (0, 0, 0.06), (0.76, 0.72, 0.20), SW_DARK_STONE)
     if lod == 0:
-        add_cylinder(bm, uv, (-0.13, 0, 1.50), 0.11, 0.09, 0.28, 6, SW_TERRACOTTA_CAP)
-        add_cylinder(bm, uv, (0.13, 0, 1.50), 0.11, 0.09, 0.28, 6, SW_TERRACOTTA_CAP)
+        add_box(bm, uv, (0, 0, 1.66), (0.78, 0.74, 0.10), SW_CREAM_STONE)
+        add_cylinder(bm, uv, (-0.16, 0, 2.02), 0.13, 0.10, 0.34, 6, SW_TERRACOTTA_CAP)
+        add_cylinder(bm, uv, (0.16, 0, 2.02), 0.13, 0.10, 0.34, 6, SW_TERRACOTTA_CAP)
 
 
 def build_balcony_historic(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
-    add_box(bm, uv, (-0.54, -0.22, -0.10), (0.16, 0.44, 0.20), SW_GRANITE)
-    add_box(bm, uv, (0.54, -0.22, -0.10), (0.16, 0.44, 0.20), SW_GRANITE)
-    add_box(bm, uv, (0, -0.32, 0.06), (1.56, 0.70, 0.13), SW_CREAM_STONE)
-    add_box(bm, uv, (0, -0.64, 0.94), (1.52, 0.07, 0.06), SW_IRON)
-    bars = 5 if lod == 0 else 2
+    # Stepped granite corbels + thick sculpted stone cantilevered slab + tall wrought-iron balcony & framed French doors
+    add_box(bm, uv, (-0.64, -0.32, -0.14), (0.20, 0.64, 0.26), SW_GRANITE)
+    add_box(bm, uv, (0.64, -0.32, -0.14), (0.20, 0.64, 0.26), SW_GRANITE)
+    add_box(bm, uv, (-0.64, -0.22, -0.32), (0.16, 0.44, 0.18), SW_CREAM_STONE)
+    add_box(bm, uv, (0.64, -0.22, -0.32), (0.16, 0.44, 0.18), SW_CREAM_STONE)
+    add_box(bm, uv, (0, -0.44, 0.06), (1.92, 0.92, 0.16), SW_CREAM_STONE)
+    # Iron top rail, mid band, bottom rail & dense spindles + planters
+    add_box(bm, uv, (0, -0.84, 1.04), (1.88, 0.08, 0.07), SW_IRON)
+    add_box(bm, uv, (-0.90, -0.46, 1.04), (0.07, 0.82, 0.06), SW_IRON)
+    add_box(bm, uv, (0.90, -0.46, 1.04), (0.07, 0.82, 0.06), SW_IRON)
+    add_box(bm, uv, (0, -0.84, 0.20), (1.86, 0.05, 0.05), SW_IRON)
+    bars = 7 if lod == 0 else 3
     for i in range(bars):
-        x = -0.64 + (1.28 * i) / (bars - 1)
-        add_box(bm, uv, (x, -0.64, 0.52), (0.045, 0.045, 0.80), SW_IRON)
+        x = -0.80 + (1.60 * i) / (bars - 1)
+        add_box(bm, uv, (x, -0.84, 0.60), (0.048, 0.048, 0.88), SW_IRON)
+    # Molded French balconera doorway behind railing with shutters & entablature hood
+    add_box(bm, uv, (-0.66, -0.07, 1.14), (0.18, 0.18, 2.20), SW_CREAM_STONE)
+    add_box(bm, uv, (0.66, -0.07, 1.14), (0.18, 0.18, 2.20), SW_CREAM_STONE)
+    add_box(bm, uv, (0, -0.10, 2.28), (1.56, 0.24, 0.18), SW_GRANITE)
+    add_box(bm, uv, (0, -0.02, 1.14), (1.14, 0.07, 2.10), SW_GLASS)
     if lod == 0:
-        add_box(bm, uv, (-0.58, -0.06, 1.08), (0.14, 0.16, 2.02), SW_CREAM_STONE)
-        add_box(bm, uv, (0.58, -0.06, 1.08), (0.14, 0.16, 2.02), SW_CREAM_STONE)
-        add_box(bm, uv, (0, -0.08, 2.12), (1.30, 0.18, 0.14), SW_GRANITE)
-        add_box(bm, uv, (0, -0.02, 1.08), (1.02, 0.06, 1.94), SW_GLASS)
-        add_box(bm, uv, (-0.66, -0.09, 1.08), (0.24, 0.05, 1.88), SW_WOOD, (0, 0, 0.20))
-        add_box(bm, uv, (0.66, -0.09, 1.08), (0.24, 0.05, 1.88), SW_WOOD, (0, 0, -0.20))
+        add_box(bm, uv, (0, -0.06, 1.14), (0.05, 0.08, 2.10), SW_WOOD)
+        add_box(bm, uv, (-0.82, -0.10, 1.14), (0.28, 0.06, 2.04), SW_SHUTTER_GREEN, (0, 0, 0.20))
+        add_box(bm, uv, (0.82, -0.10, 1.14), (0.28, 0.06, 2.04), SW_SHUTTER_GREEN, (0, 0, -0.20))
 
 
 def build_balcony_modern(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
-    add_box(bm, uv, (0, -0.36, 0.08), (2.36, 0.84, 0.16), SW_CONCRETE)
-    add_box(bm, uv, (0, -0.74, 0.52), (2.32, 0.06, 0.72), SW_FROSTED_GLASS)
-    add_box(bm, uv, (-1.13, -0.37, 0.52), (0.06, 0.74, 0.72), SW_PLASTER_WHITE)
-    add_box(bm, uv, (1.13, -0.37, 0.52), (0.06, 0.74, 0.72), SW_PLASTER_WHITE)
-    add_box(bm, uv, (0, -0.74, 0.96), (2.36, 0.08, 0.06), SW_CHARCOAL)
+    # Wide architectural concrete cantilevered deck with chamfered lip, frosted glass balustrade & AC unit
+    add_box(bm, uv, (0, -0.48, 0.08), (2.92, 1.04, 0.18), SW_CONCRETE)
+    add_box(bm, uv, (0, -0.94, 0.56), (2.86, 0.07, 0.80), SW_FROSTED_GLASS)
+    add_box(bm, uv, (-1.40, -0.48, 0.56), (0.09, 0.96, 0.82), SW_PLASTER_WHITE)
+    add_box(bm, uv, (1.40, -0.48, 0.56), (0.09, 0.96, 0.82), SW_PLASTER_WHITE)
+    add_box(bm, uv, (0, -0.94, 1.02), (2.90, 0.10, 0.07), SW_CHARCOAL)
+    add_box(bm, uv, (0, -0.02, 1.12), (2.28, 0.07, 2.04), SW_GLASS)
+    add_box(bm, uv, (-1.18, -0.07, 1.12), (0.12, 0.14, 2.06), SW_CHARCOAL)
+    add_box(bm, uv, (1.18, -0.07, 1.12), (0.12, 0.14, 2.06), SW_CHARCOAL)
+    add_box(bm, uv, (0, -0.08, 2.18), (2.42, 0.18, 0.24), SW_PERSIANA)
     if lod == 0:
-        add_box(bm, uv, (0, -0.02, 1.06), (1.84, 0.06, 1.92), SW_GLASS)
-        add_box(bm, uv, (-0.94, -0.06, 1.06), (0.10, 0.12, 1.94), SW_CHARCOAL)
-        add_box(bm, uv, (0.94, -0.06, 1.06), (0.10, 0.12, 1.94), SW_CHARCOAL)
-        add_box(bm, uv, (0, -0.07, 2.04), (1.96, 0.14, 0.22), SW_PERSIANA)
+        # Stylish AC condenser tucked cleanly on right wall return
+        add_box(bm, uv, (1.62, -0.20, 1.55), (0.56, 0.34, 0.42), SW_STEEL)
+        add_cylinder(bm, uv, (1.62, -0.38, 1.55), 0.14, 0.14, 0.04, 6, SW_CHARCOAL, (math.pi / 2, 0, 0))
 
 
 def build_window_casco(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
@@ -654,43 +666,55 @@ def build_window_awning(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod:
 
 
 def build_portal_casco(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
-    add_box(bm, uv, (0, -0.26, -0.06), (2.46, 0.56, 0.30), SW_DARK_STONE)
-    add_box(bm, uv, (-1.00, -0.10, 1.34), (0.36, 0.28, 2.54), SW_GRANITE)
-    add_box(bm, uv, (1.00, -0.10, 1.34), (0.36, 0.28, 2.54), SW_GRANITE)
-    add_box(bm, uv, (0, -0.04, 1.36), (1.66, 0.12, 2.54), SW_WOOD)
-    arch_segs = 6 if lod == 0 else 3
-    r_mid = 0.98
+    # Deep ground-anchored stone threshold extending -0.35m for slope safety + arched voussoir portal & lantern
+    add_box(bm, uv, (0, -0.34, -0.08), (2.72, 0.72, 0.42), SW_DARK_STONE)
+    add_box(bm, uv, (-1.08, -0.13, 1.44), (0.42, 0.34, 2.74), SW_GRANITE)
+    add_box(bm, uv, (1.08, -0.13, 1.44), (0.42, 0.34, 2.74), SW_GRANITE)
+    add_box(bm, uv, (0, -0.05, 1.46), (1.78, 0.14, 2.72), SW_WOOD)
+    arch_segs = 7 if lod == 0 else 3
+    r_mid = 1.08
     for i in range(arch_segs):
         angle = math.pi * (i + 0.5) / arch_segs
         cx = -math.cos(angle) * r_mid
-        cz = 2.40 + math.sin(angle) * r_mid * 0.72
+        cz = 2.52 + math.sin(angle) * r_mid * 0.78
         rot_y = -(angle - math.pi / 2)
-        h_stone = 0.44 if i == arch_segs // 2 else 0.36
-        add_box(bm, uv, (cx, -0.12, cz), (0.38, 0.28, h_stone), SW_CREAM_STONE, (0, rot_y, 0))
+        h_stone = 0.52 if i == arch_segs // 2 else 0.40
+        add_box(bm, uv, (cx, -0.16, cz), (0.42, 0.34, h_stone), SW_CREAM_STONE, (0, rot_y, 0))
+    if lod == 0:
+        add_box(bm, uv, (1.44, -0.20, 2.38), (0.14, 0.26, 0.10), SW_IRON)
+        add_cylinder(bm, uv, (1.44, -0.30, 2.22), 0.10, 0.15, 0.28, 4, SW_LAMP_GLOW, (0, 0, math.pi / 4))
 
 
 def build_portal_modern(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:
-    add_box(bm, uv, (0, -0.26, -0.05), (2.68, 0.58, 0.26), SW_DARK_STONE)
-    add_box(bm, uv, (-1.16, -0.08, 1.30), (0.26, 0.24, 2.54), SW_DARK_STONE)
-    add_box(bm, uv, (1.16, -0.08, 1.30), (0.26, 0.24, 2.54), SW_DARK_STONE)
-    add_box(bm, uv, (0, -0.03, 1.26), (2.06, 0.08, 2.42), SW_GLASS_WARM)
-    add_box(bm, uv, (0, -0.52, 2.62), (2.82, 1.12, 0.16), SW_CONCRETE)
+    add_box(bm, uv, (0, -0.34, -0.08), (2.96, 0.72, 0.40), SW_DARK_STONE)
+    add_box(bm, uv, (-1.26, -0.11, 1.40), (0.30, 0.30, 2.72), SW_DARK_STONE)
+    add_box(bm, uv, (1.26, -0.11, 1.40), (0.30, 0.30, 2.72), SW_DARK_STONE)
+    add_box(bm, uv, (0, -0.04, 1.36), (2.22, 0.10, 2.60), SW_GLASS_WARM)
+    add_box(bm, uv, (0, -0.68, 2.82), (3.14, 1.44, 0.20), SW_CONCRETE)
     if lod == 0:
-        add_box(bm, uv, (0, -0.07, 1.26), (0.08, 0.10, 2.42), SW_CHARCOAL)
-        add_box(bm, uv, (0, -0.52, 2.72), (2.86, 1.16, 0.06), SW_CHARCOAL)
+        add_box(bm, uv, (0, -0.09, 1.36), (0.09, 0.12, 2.60), SW_CHARCOAL)
+        add_box(bm, uv, (0, -0.68, 2.94), (3.18, 1.48, 0.08), SW_CHARCOAL)
+        # Flanking entrance stone planters
+        for sx in (-1.62, 1.62):
+            add_box(bm, uv, (sx, -0.32, 0.22), (0.44, 0.44, 0.44), SW_TERRACOTTA)
+            add_ico(bm, uv, (sx, -0.32, 0.56), 0.28, 1, SW_LEAVES_SHRUB)
 
 
 def build_shopfront_awning(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int,
                            swatch_awning: tuple[int, int] = SW_AWNING_RED) -> None:
-    add_box(bm, uv, (0, -0.11, 0.22), (3.22, 0.28, 0.76), SW_DARK_STONE)
-    add_box(bm, uv, (0, -0.03, 1.58), (2.98, 0.10, 2.02), SW_GLASS_WARM)
-    add_box(bm, uv, (0, -0.08, 2.74), (3.22, 0.22, 0.26), SW_CHARCOAL)
-    add_box(bm, uv, (0, -0.64, 2.54), (3.18, 1.26, 0.08), swatch_awning, (0.34, 0, 0))
-    add_box(bm, uv, (0, -1.24, 2.26), (3.18, 0.05, 0.20), swatch_awning)
+    # Tall sidewalk-safe stone skirt + warm glowing cafe display + deeply ribbed striped awning & signboard
+    add_box(bm, uv, (0, -0.14, 0.18), (3.62, 0.34, 0.96), SW_DARK_STONE)
+    add_box(bm, uv, (0, -0.04, 1.68), (3.34, 0.12, 2.16), SW_GLASS_WARM)
+    add_box(bm, uv, (0, -0.10, 2.94), (3.62, 0.26, 0.32), SW_CHARCOAL)
+    add_box(bm, uv, (0, -0.72, 2.70), (3.56, 1.42, 0.10), swatch_awning, (0.36, 0, 0))
+    add_box(bm, uv, (0, -1.38, 2.40), (3.56, 0.06, 0.24), swatch_awning)
     if lod == 0:
-        add_box(bm, uv, (-1.52, -0.08, 1.48), (0.16, 0.22, 2.78), SW_CHARCOAL)
-        add_box(bm, uv, (1.52, -0.08, 1.48), (0.16, 0.22, 2.78), SW_CHARCOAL)
-        add_box(bm, uv, (-0.30, -0.07, 1.56), (0.06, 0.10, 2.02), SW_CHARCOAL)
+        add_box(bm, uv, (-1.70, -0.10, 1.56), (0.18, 0.26, 2.98), SW_CHARCOAL)
+        add_box(bm, uv, (1.70, -0.10, 1.56), (0.18, 0.26, 2.98), SW_CHARCOAL)
+        add_box(bm, uv, (-0.36, -0.08, 1.66), (0.07, 0.12, 2.16), SW_CHARCOAL)
+        # Decorative sidewalk awning ribs
+        for rx in (-1.3, 0.0, 1.3):
+            add_box(bm, uv, (rx, -0.68, 2.66), (0.08, 1.32, 0.07), SW_CHARCOAL, (0.36, 0, 0))
 
 
 def build_industrial_door(bm: bmesh.types.BMesh, uv: bmesh.types.BMLayerItem, lod: int) -> None:

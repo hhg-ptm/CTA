@@ -251,6 +251,7 @@ export class CityKit {
     buildings: BuiltBuildingChunk | undefined,
     centerX: number,
     centerZ: number,
+    castExtraShadows = false,
   ): THREE.Mesh[][] {
     if (!this.ready || !buildings) return [[], [], []];
     if (!buildings.detailBatches || buildings.detailBatches.length === 0) {
@@ -283,7 +284,15 @@ export class CityKit {
           scale: batch.scales[i] ?? 1,
         });
       }
-      const castShadow = SHADOW_CASTING_KINDS.has(batch.kind);
+      const castShadow =
+        SHADOW_CASTING_KINDS.has(batch.kind) ||
+        (castExtraShadows &&
+          (batch.kind === 'balcony' ||
+            batch.kind === 'balcony_modern' ||
+            batch.kind === 'shopfront_awning' ||
+            batch.kind === 'portal_casco' ||
+            batch.kind === 'portal_modern' ||
+            batch.kind === 'dormer_roof'));
       lod0Meshes.push(
         ...instanceParts(model.lod0, placements, centerX, centerZ, false, castShadow),
       );

@@ -804,13 +804,16 @@ window.addEventListener('pagehide', () => {
 });
 
 const requestedWorld = query.get('world') === 'cc-prototype' ? 'cc-prototype' : 'cc-monumental';
+const rawBudget = query.get('budget');
+const requestedBudget =
+  rawBudget === '600k' || rawBudget === '1200k' || rawBudget === '2000k' ? rawBudget : '1200k';
 
 async function initializeWorld(): Promise<void> {
   world = await createPhysicsWorld();
   agentColliders = new AgentColliders(world);
   const worldBaseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
   const manifestUrl = new URL(`world/${requestedWorld}/manifest.json`, worldBaseUrl);
-  chunks = new ChunkManager(scene, world, manifestUrl, worldBaseUrl, cityKitEnabled);
+  chunks = new ChunkManager(scene, world, manifestUrl, worldBaseUrl, cityKitEnabled, requestedBudget);
   cameraRig.occlusion = (origin, dir, maxDist) =>
     chunks?.cameraOcclusion(origin, dir, maxDist) ?? maxDist;
   chunks.events.on('chunkLoaded', ({ id, lod }) =>

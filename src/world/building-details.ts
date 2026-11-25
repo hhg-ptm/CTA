@@ -1,5 +1,12 @@
-import type { BuildingStyleSpec } from './building-styles';
-import { isTowerFeature } from './building-styles';
+import {
+  computeEdgeBayLayout,
+  DETAIL_BUDGET_CONFIGS,
+  isTowerFeature,
+  selectMiradorBay,
+  wantsBalconyOnBayFloor,
+  type BuildingStyleSpec,
+  type DetailBudgetConfig,
+} from './building-styles';
 import { sampleHeight, type RoadPoint } from './road-geometry';
 import type {
   BuildingDetailBatch,
@@ -37,26 +44,39 @@ interface DetailMutableBatch {
 }
 
 const MAX_INSTANCES: Readonly<Record<BuildingDetailKind, number>> = {
-  balcony: 64,
-  balcony_modern: 72,
+  balcony: 380,
+  balcony_modern: 420,
   window_casco: 145,
   window_ensanche: 155,
   window_modern: 155,
-  window_awning: 60,
-  portal_casco: 28,
-  portal_modern: 32,
-  shopfront_awning: 34,
-  industrial_door: 24,
-  pilaster_corner: 48,
-  chimney: 42,
-  dormer_roof: 28,
-  rooftop_penthouse: 26,
-  rooftop_hvac: 32,
-  rooftop_solar: 28,
-  bell_gable: 10,
-  corner_turret: 12,
-  heraldic_crest: 18,
+  window_awning: 240,
+  portal_casco: 180,
+  portal_modern: 200,
+  shopfront_awning: 220,
+  industrial_door: 64,
+  pilaster_corner: 96,
+  chimney: 240,
+  dormer_roof: 130,
+  rooftop_penthouse: 110,
+  rooftop_hvac: 160,
+  rooftop_solar: 120,
+  bell_gable: 16,
+  corner_turret: 24,
+  heraldic_crest: 64,
 };
+
+const MID_LOD_ELIGIBLE_KINDS = new Set<BuildingDetailKind>([
+  'balcony',
+  'balcony_modern',
+  'portal_casco',
+  'portal_modern',
+  'shopfront_awning',
+  'chimney',
+  'dormer_roof',
+  'rooftop_penthouse',
+  'bell_gable',
+  'corner_turret',
+]);
 
 const MAX_LOD: Readonly<Record<BuildingDetailKind, 0 | 1>> = {
   balcony: 0,
@@ -211,8 +231,56 @@ function nearestPortalDist(
   return best;
 }
 
+/**
+ * Identifies the primary front facade edge of a building polygon using Catastro AD portal
+ * locations first, then road distance, falling back safely to the longest exposed edge.
+ */
+export function selectPrimaryStreetEdge(
+  pts: readonly RoadPoint[],
+  exposed: readonly boolean[],
+  roads: readonly ChunkFeature[],
+  bounds: ProjectedBounds,
+  portalPts: readonly (readonly [number, number])[] | undefined,
+  minEdgeMeters: number,
+): number {
+  let bestStreetEdge = -1;
+  let bestEdgeScore = Infinity;
+  let bestEdgeLen = 0;
+
+  for (let i = 0; i < pts.length; i += 1) {
+    if (!exposed[i]) continue;
+    const a = pts[i];
+    const b = pts[(i + 1) % pts.length];
+    if (!a || !b || onChunkSliceEdge(a, b, bounds)) continue;
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len < Math.max(2.0, minEdgeMeters)) continue;
+    const mid: RoadPoint = [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5];
+    const portalDist = nearestPortalDist(mid, portalPts);
+    const rDist = roadProximity(mid, roads);
+    const score = portalDist <= 9.0 ? portalDist * 0.45 : rDist;
+    const isCloser =
+      score < bestEdgeScore - 0.6 ||
+      (score === bestEdgeScore && len > bestEdgeLen) ||
+      (Number.isFinite(score) &&
+        Number.isFinite(bestEdgeScore) &&
+        Math.abs(score - bestEdgeScore) <= 0.6 &&
+        len > bestEdgeLen);
+    if (bestStreetEdge < 0 || isCloser) {
+      bestEdgeScore = score;
+      bestStreetEdge = i;
+      bestEdgeLen = len;
+    }
+  }
+  return bestStreetEdge;
+}
+
 class DetailCollector {
   private readonly batches = new Map<BuildingDetailKind, DetailMutableBatch>();
+  private readonly budget: DetailBudgetConfig;
+
+  constructor(budget: DetailBudgetConfig) {
+    this.budget = budget;
+  }
 
   push(
     kind: BuildingDetailKind,
@@ -224,16 +292,24 @@ class DetailCollector {
   ): boolean {
     let batch = this.batches.get(kind);
     if (!batch) {
+      const baseMaxLod = MAX_LOD[kind];
+      const maxLod: 0 | 1 =
+        baseMaxLod === 1
+          ? 1
+          : MID_LOD_ELIGIBLE_KINDS.has(kind) && this.budget.balconyMaxLod >= 1
+            ? 1
+            : 0;
       batch = {
         kind,
-        maxLod: MAX_LOD[kind],
+        maxLod,
         positions: [],
         headings: [],
         scales: [],
       };
       this.batches.set(kind, batch);
     }
-    if (batch.headings.length >= MAX_INSTANCES[kind]) return false;
+    const maxCount = Math.max(1, Math.round(MAX_INSTANCES[kind] * this.budget.instanceCapScale));
+    if (batch.headings.length >= maxCount) return false;
     batch.positions.push(x, y, z);
     batch.headings.push(heading);
     batch.scales.push(scale);
@@ -262,46 +338,33 @@ export function collectBuildingDetails(
   roads: readonly ChunkFeature[],
   terrain: BuiltTerrainChunk,
   bounds: ProjectedBounds,
+  budget: DetailBudgetConfig = DETAIL_BUDGET_CONFIGS['1200k'],
+  primaryEdgeMap?: ReadonlyMap<string, number>,
 ): BuildingDetailBatch[] {
-  const collector = new DetailCollector();
+  const collector = new DetailCollector(budget);
 
-  for (const item of buildings) {
+  // Prioritize street-facing & plaza-adjacent buildings before courtyard sheds when instance caps fill
+  const sortedBuildings = [...buildings].sort((a, b) => {
+    const da = roadProximity(a.centroid, roads);
+    const db = roadProximity(b.centroid, roads);
+    if (Math.abs(da - db) > 0.5) return da - db;
+    return b.wallHeight * b.area - a.wallHeight * a.area;
+  });
+
+  for (const item of sortedBuildings) {
     const pts = item.points;
-    const exposed = exposedMap.get(item.detailKey ?? item.feature.id ?? '') ?? [];
+    const key = item.detailKey ?? item.feature.id ?? '';
+    const exposed = exposedMap.get(key) ?? [];
     const signedArea = polygonSignedArea(pts);
-    const floors = Math.min(item.floorCount, 8);
     const storeyH = item.wallHeight / item.floorCount;
     const baseElev = item.baseElevationOffset ?? 0;
     const isSetback = baseElev > 0.1;
     const isTower = isTowerFeature(item.feature);
-    const pattern = item.seed % 3;
     const portalPts = item.feature.portalPoints;
 
-    // Identify primary street/portal edge using Catastro AD portal locations first, then road distance.
-    let bestStreetEdge = -1;
-    let bestEdgeScore = Infinity;
-    let bestEdgeLen = 0;
-
-    for (let i = 0; i < pts.length; i += 1) {
-      if (!exposed[i]) continue;
-      const a = pts[i];
-      const b = pts[(i + 1) % pts.length];
-      if (!a || !b || onChunkSliceEdge(a, b, bounds)) continue;
-      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      if (len < 3.6) continue;
-      const mid: RoadPoint = [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5];
-      const portalDist = nearestPortalDist(mid, portalPts);
-      const rDist = roadProximity(mid, roads);
-      const score = portalDist <= 9.0 ? portalDist * 0.45 : rDist;
-      if (
-        score < bestEdgeScore - 0.6 ||
-        (Math.abs(score - bestEdgeScore) <= 0.6 && len > bestEdgeLen)
-      ) {
-        bestEdgeScore = score;
-        bestStreetEdge = i;
-        bestEdgeLen = len;
-      }
-    }
+    const bestStreetEdge =
+      primaryEdgeMap?.get(key) ??
+      selectPrimaryStreetEdge(pts, exposed, roads, bounds, portalPts, budget.minEdgeMeters);
 
     for (let edgeIdx = 0; edgeIdx < pts.length; edgeIdx += 1) {
       if (!exposed[edgeIdx]) continue;
@@ -311,7 +374,7 @@ export function collectBuildingDetails(
       const dx = b[0] - a[0];
       const dz = b[1] - a[1];
       const len = Math.hypot(dx, dz);
-      if (len < 3.4) continue;
+      if (len < Math.max(1.4, budget.minEdgeMeters)) continue;
       const nx = signedArea >= 0 ? dz / len : -dz / len;
       const nz = signedArea >= 0 ? -dx / len : dx / len;
       const heading = Math.atan2(nx, nz);
@@ -320,9 +383,25 @@ export function collectBuildingDetails(
       const slopeRatio = Math.abs(endG - startG) / len;
       const isPrimaryEdge = edgeIdx === bestStreetEdge;
 
-      const bayPitch = item.style.isIndustrial ? 7.6 : item.style.isHistoric ? 4.4 : 4.6;
-      const maxBays = item.style.isIndustrial ? 3 : 5;
-      const bayCount = Math.min(maxBays, Math.max(1, Math.floor((len - 0.9) / bayPitch)));
+      const { panels: bayCount, floors } = computeEdgeBayLayout(
+        len,
+        item.floorCount,
+        item.style,
+        budget,
+        true,
+        0,
+      );
+      const miradorBay = selectMiradorBay(
+        item.seed,
+        floors,
+        item.style,
+        bayCount,
+        len,
+        isPrimaryEdge,
+        isSetback,
+        isTower,
+        budget,
+      );
 
       // Pick ground-floor portal bay closest to Catastro AD coordinates when available
       let bestPortalBay = Math.floor(bayCount / 2);
@@ -347,20 +426,21 @@ export function collectBuildingDetails(
         const isPortalBay = bay === bestPortalBay;
         const isCenterBay = bay === Math.floor(bayCount / 2);
         const bayPortalDist = nearestPortalDist([px, pz], portalPts);
+        const isMiradorCol = bay === miradorBay;
 
-        // Ground floor openings
-        if (!isSetback && item.wallHeight >= 2.8 && slopeRatio <= 0.24) {
+        // Ground floor portals, shopfronts & commercial awnings (relaxed slope tolerance with portal skirt)
+        if (!isSetback && item.wallHeight >= 2.8 && slopeRatio <= 0.36) {
           if (item.style.isIndustrial && isCenterBay && len >= 6.5) {
-            collector.push('industrial_door', px, groundY, pz, heading, 1);
+            collector.push('industrial_door', px, groundY - 0.03, pz, heading, 1);
           } else if (
             (isPrimaryEdge || bayPortalDist <= 7.5) &&
             (item.feature.commercial || item.feature.catastroUse === '4_2_retail') &&
             !isTower &&
             (isPortalBay || bay % 2 === 1)
           ) {
-            collector.push('shopfront_awning', px, groundY, pz, heading, 1);
+            collector.push('shopfront_awning', px, groundY - 0.02, pz, heading, 1);
           } else if ((isPrimaryEdge || bayPortalDist <= 6.0) && isPortalBay && !isTower) {
-            collector.push(item.style.portalKind, px, groundY, pz, heading, 1);
+            collector.push(item.style.portalKind, px, groundY - 0.04, pz, heading, 1);
             if (item.style.archetype === 'casco_palace' && item.wallHeight >= 5.5) {
               collector.push('heraldic_crest', px, groundY + 3.05, pz, heading, 1);
             }
@@ -374,44 +454,52 @@ export function collectBuildingDetails(
           continue;
         }
 
-        // Upper floor balconies & sculptural awnings (recessed 3D windows are baked directly into chunk mesh)
+        // Upper floor cantilevered CityKit balconies synced identically with chunk-mesh balconeras
         const startFloor = isSetback ? 0 : 1;
         for (let floor = startFloor; floor < floors; floor += 1) {
-          const floorBaseY = groundY + floor * storeyH;
-          if (item.style.isIndustrial) continue;
-          const wantsBalcony =
-            !isSetback &&
-            storeyH >= 2.35 &&
-            ((pattern === 0 && floor === 1 && !item.style.isChalet) ||
-              (pattern === 1 && isCenterBay && floor <= 4) ||
-              (pattern === 2 && (floor + bay) % 2 === 1 && isPrimaryEdge));
-          if (wantsBalcony) {
+          if (
+            wantsBalconyOnBayFloor(
+              item.seed,
+              item.style,
+              floor,
+              bay,
+              bayCount,
+              storeyH,
+              isSetback,
+              isPrimaryEdge,
+              isTower,
+              isMiradorCol,
+              budget,
+            )
+          ) {
+            const floorBaseY = groundY + (item.wallHeight * floor) / floors;
             collector.push(item.style.balconyKind, px, floorBaseY, pz, heading, 1);
           }
         }
       }
 
-      // Dormer on pitched Casco / Chalet roof edge
+      // Dormer on pitched Casco / Chalet roof edge (requires sufficient footprint depth so dormer sits inside slope)
       if (
         isPrimaryEdge &&
-        bestEdgeLen >= 6.0 &&
+        len >= 6.5 &&
+        item.area >= 95 &&
         item.shape !== 'flat' &&
         item.style.roofMaterial === 'tile_roof' &&
         !isTower &&
         !item.style.isSacred &&
         item.seed % 3 !== 0
       ) {
-        const midX = (a[0] + b[0]) * 0.5 - nx * 1.35;
-        const midZ = (a[1] + b[1]) * 0.5 - nz * 1.35;
+        const midX = (a[0] + b[0]) * 0.5 - nx * 1.9;
+        const midZ = (a[1] + b[1]) * 0.5 - nz * 1.9;
         if (inBounds(midX, midZ, bounds)) {
           const midG = sampleHeight(terrain, midX, midZ);
           collector.push(
             'dormer_roof',
             midX,
-            midG + item.wallHeight + item.roofHeight * 0.36,
+            midG + item.wallHeight + item.roofHeight * 0.16,
             midZ,
             heading,
-            1,
+            0.95,
           );
         }
       }

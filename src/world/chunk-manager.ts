@@ -14,9 +14,11 @@ import { RoadHeightIndex } from './road-height-index';
 import { createStork, updateStork } from './stork';
 import { createTerrainDetailTexture } from './materials';
 import { TerrainColliders } from './terrain-physics';
+import { DETAIL_BUDGET_CONFIGS } from './building-styles';
 import type {
   BuiltTerrainChunk,
   ChunkEntry,
+  DetailBudgetProfile,
   TerrainChunkEvents,
   TerrainLodData,
   WorldManifest,
@@ -201,6 +203,7 @@ export class ChunkManager {
   private readonly scene: THREE.Scene;
   private readonly world: World;
   private readonly colliders: TerrainColliders;
+  private readonly detailBudget: DetailBudgetProfile;
   private readonly material = new THREE.MeshStandardMaterial({
     map: createTerrainDetailTexture(),
     vertexColors: true,
@@ -237,9 +240,11 @@ export class ChunkManager {
     manifestUrl: URL,
     worldBaseUrl: URL,
     cityKitEnabled = false,
+    detailBudget: DetailBudgetProfile = '1200k',
   ) {
     this.scene = scene;
     this.world = physicsWorld;
+    this.detailBudget = detailBudget;
     this.cityKit = cityKitEnabled ? new CityKit(worldBaseUrl) : undefined;
     this.debugOverlays = new ChunkDebugOverlays(scene);
     this.colliders = new TerrainColliders(physicsWorld);
@@ -289,6 +294,9 @@ export class ChunkManager {
     const colliderRadius = this.manifest.chunkMeters * 0.75;
     for (const entry of this.manifest.chunks) {
       const distance = distanceToCenter(x, z, entry);
+      const bx = x < entry.bounds.minX ? entry.bounds.minX - x : x > entry.bounds.maxX ? x - entry.bounds.maxX : 0;
+      const bz = z < entry.bounds.minZ ? entry.bounds.minZ - z : z > entry.bounds.maxZ ? z - entry.bounds.maxZ : 0;
+      const boundsDistance = Math.hypot(bx, bz);
       let record = this.records.get(entry.id);
       if (record && distance > unloadRadius) {
         this.unload(record);
@@ -300,7 +308,7 @@ export class ChunkManager {
           entry,
           state: 'queued',
           distance,
-          lod: this.lodForDistance(distance),
+          lod: this.lodForDistance(boundsDistance),
           memoryBytes: 0,
           debugMemoryBytes: 0,
           hasCollider: false,
@@ -311,7 +319,7 @@ export class ChunkManager {
       record.distance = distance;
       if (record.state === 'queued' && distance <= unloadRadius) nextQueue.push(entry.id);
       if (record.state !== 'loaded') continue;
-      this.setLod(record, this.lodForDistance(distance));
+      this.setLod(record, this.lodForDistance(boundsDistance));
       const needsCollider = distance <= colliderRadius;
       if (needsCollider && !record.hasCollider && record.result) {
         this.addColliders(record);
@@ -468,9 +476,14 @@ export class ChunkManager {
     this.world.free();
   }
 
-  private lodForDistance(distance: number): number {
+  private lodForDistance(boundsDistance: number): number {
     const chunkMeters = this.manifest?.chunkMeters ?? 256;
-    return distance < chunkMeters * 0.68 ? 0 : distance < chunkMeters * 1.38 ? 1 : 2;
+    const budget = DETAIL_BUDGET_CONFIGS[this.detailBudget];
+    return boundsDistance < chunkMeters * 0.42 * budget.lod0RadiusScale
+      ? 0
+      : boundsDistance < chunkMeters * 0.9 * budget.lod1RadiusScale
+        ? 1
+        : 2;
   }
 
   private setLod(record: ChunkRecord, lod: number): void {
@@ -548,7 +561,12 @@ export class ChunkManager {
       for (const mesh of decorationMeshes) this.scene.add(mesh);
       const buildingDetailMeshes =
         kitActive && this.cityKit
-          ? this.cityKit.createBuildingDetailMeshesByLod(item.result.buildings, centerX, centerZ)
+          ? this.cityKit.createBuildingDetailMeshesByLod(
+              item.result.buildings,
+              centerX,
+              centerZ,
+              DETAIL_BUDGET_CONFIGS[this.detailBudget].lod0CastShadowDirect,
+            )
           : [[], [], []];
       for (const mesh of buildingDetailMeshes[record.lod] ?? []) {
         mesh.visible = true;
@@ -558,6 +576,7 @@ export class ChunkManager {
         item.result.buildings,
         centerX,
         centerZ,
+        DETAIL_BUDGET_CONFIGS[this.detailBudget].lod0CastShadowDirect,
       );
       for (const mesh of buildingMeshes[record.lod] ?? []) {
         mesh.visible = true;
@@ -750,7 +769,10 @@ export class ChunkManager {
       const actualHash = toHex(await crypto.subtle.digest('SHA-256', buffer));
       if (actualHash !== record.entry.sha256)
         throw new Error(`Chunk ${record.entry.id} integrity check failed.`);
-      this.worker.postMessage({ id: record.entry.id, buffer }, [buffer]);
+      this.worker.postMessage(
+        { id: record.entry.id, buffer, detailBudget: this.detailBudget },
+        [buffer],
+      );
     } catch (error) {
       this.workerBusy = false;
       record.state = 'error';

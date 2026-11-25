@@ -1,5 +1,81 @@
 import type { BuildingColor } from './building-geometry';
-import type { BuildingDetailKind, BuildingMaterial, ChunkFeature } from './types';
+import type { BuildingDetailKind, BuildingMaterial, ChunkFeature, DetailBudgetProfile } from './types';
+
+export interface DetailBudgetConfig {
+  readonly profile: DetailBudgetProfile;
+  readonly lod0RadiusScale: number;
+  readonly lod1RadiusScale: number;
+  readonly minEdgeMeters: number;
+  readonly bayPitchScale: number;
+  readonly maxBaysPerEdge: number;
+  readonly maxDetailedFloors: number;
+  readonly enableArticulatedPorticos: boolean;
+  readonly enableBayMiradores: boolean;
+  readonly enableCornerQuoins: boolean;
+  readonly enableRoofRidgeAndParapets: boolean;
+  readonly enableCorniceCorbels: boolean;
+  readonly enableTrimFramesOnOpenings: boolean;
+  readonly instanceCapScale: number;
+  readonly balconyMaxLod: 0 | 1;
+  readonly lod0CastShadowDirect: boolean;
+}
+
+export const DETAIL_BUDGET_CONFIGS: Readonly<Record<DetailBudgetProfile, DetailBudgetConfig>> = {
+  '600k': {
+    profile: '600k',
+    lod0RadiusScale: 0.56,
+    lod1RadiusScale: 1.15,
+    minEdgeMeters: 3.2,
+    bayPitchScale: 1.78,
+    maxBaysPerEdge: 5,
+    maxDetailedFloors: 7,
+    enableArticulatedPorticos: false,
+    enableBayMiradores: false,
+    enableCornerQuoins: false,
+    enableRoofRidgeAndParapets: false,
+    enableCorniceCorbels: false,
+    enableTrimFramesOnOpenings: false,
+    instanceCapScale: 0.18,
+    balconyMaxLod: 0,
+    lod0CastShadowDirect: false,
+  },
+  '1200k': {
+    profile: '1200k',
+    lod0RadiusScale: 0.62,
+    lod1RadiusScale: 1.05,
+    minEdgeMeters: 1.85,
+    bayPitchScale: 1.24,
+    maxBaysPerEdge: 8,
+    maxDetailedFloors: 7,
+    enableArticulatedPorticos: true,
+    enableBayMiradores: true,
+    enableCornerQuoins: true,
+    enableRoofRidgeAndParapets: true,
+    enableCorniceCorbels: false,
+    enableTrimFramesOnOpenings: true,
+    instanceCapScale: 0.75,
+    balconyMaxLod: 1,
+    lod0CastShadowDirect: false,
+  },
+  '2000k': {
+    profile: '2000k',
+    lod0RadiusScale: 0.78,
+    lod1RadiusScale: 1.28,
+    minEdgeMeters: 1.35,
+    bayPitchScale: 0.96,
+    maxBaysPerEdge: 12,
+    maxDetailedFloors: 10,
+    enableArticulatedPorticos: true,
+    enableBayMiradores: true,
+    enableCornerQuoins: true,
+    enableRoofRidgeAndParapets: true,
+    enableCorniceCorbels: true,
+    enableTrimFramesOnOpenings: true,
+    instanceCapScale: 1.25,
+    balconyMaxLod: 1,
+    lod0CastShadowDirect: true,
+  },
+};
 
 export type BuildingArchetype =
   | 'casco_palace'
@@ -401,9 +477,9 @@ export function classifyBuilding(
 
   const tint = hexTint ?? baseTint;
   const trimColor: BuildingColor = [
-    Math.min(1, tint[0] * 0.86 + 0.09),
-    Math.min(1, tint[1] * 0.86 + 0.08),
-    Math.min(1, tint[2] * 0.85 + 0.07),
+    Math.min(1, tint[0] * 0.88 + 0.12),
+    Math.min(1, tint[1] * 0.87 + 0.11),
+    Math.min(1, tint[2] * 0.85 + 0.09),
   ];
 
   const floors = feature.visualFloors ?? feature.floors ?? 2;
@@ -413,7 +489,7 @@ export function classifyBuilding(
     !sacred &&
     !isTowerFeature(feature) &&
     roofShape === 'flat' &&
-    floors >= 5;
+    floors >= 4;
 
   return {
     archetype,
@@ -424,9 +500,9 @@ export function classifyBuilding(
     trimColor,
     plinthColor,
     eaveOverhangMeters:
-      roofShape !== 'flat' && useTileRoof ? 0.36 : roofShape !== 'flat' ? 0.24 : 0,
-    parapetHeightMeters: roofShape === 'flat' && !isTowerFeature(feature) ? 0.52 : 0,
-    fasciaThicknessMeters,
+      roofShape !== 'flat' && useTileRoof ? 0.46 : roofShape !== 'flat' ? 0.34 : 0,
+    parapetHeightMeters: roofShape === 'flat' && !isTowerFeature(feature) ? 0.62 : 0,
+    fasciaThicknessMeters: fasciaThicknessMeters + 0.05,
     reliefDepthMeters,
     floorHeightsMeters,
     facadeGrammar,
@@ -441,3 +517,113 @@ export function classifyBuilding(
     isChalet: chalet,
   };
 }
+
+export interface EdgeBayLayout {
+  readonly activeDetail: boolean;
+  readonly panels: number;
+  readonly floors: number;
+}
+
+export function baseBayPitchForStyle(style: BuildingStyleSpec): number {
+  if (style.isIndustrial) return 6.0;
+  if (style.facadeGrammar === 'recessed_classical') return 2.65;
+  if (style.facadeGrammar === 'chalet_cottage') return 2.85;
+  return 3.0;
+}
+
+/**
+ * Single source of truth dividing any building facade edge into architectural bays and floors,
+ * shared identically by chunk mesh generation and CityKit instanced balcony/portal placement.
+ */
+export function computeEdgeBayLayout(
+  edgeLengthMeters: number,
+  floorCount: number,
+  style: BuildingStyleSpec,
+  budget: DetailBudgetConfig,
+  exposed: boolean,
+  lod: number,
+): EdgeBayLayout {
+  const activeDetail = lod === 0 && exposed && edgeLengthMeters >= budget.minEdgeMeters;
+  const pitch = baseBayPitchForStyle(style) * budget.bayPitchScale;
+  const panels = activeDetail
+    ? Math.max(1, Math.min(budget.maxBaysPerEdge, Math.round(edgeLengthMeters / Math.max(1.2, pitch))))
+    : lod === 1 && exposed && edgeLengthMeters >= 7.0
+      ? 2
+      : 1;
+  const floors = activeDetail
+    ? Math.min(floorCount, budget.maxDetailedFloors)
+    : lod === 1 && exposed
+      ? Math.min(floorCount, 5)
+      : 1;
+  return { activeDetail, panels, floors };
+}
+
+/**
+ * Deterministically assigns at most one cantilevered enclosed Mirador gallery column
+ * on eligible multi-storey main street facades so chunk mesh and CityKit balconies never overlap.
+ */
+export function selectMiradorBay(
+  seed: number,
+  floorCount: number,
+  style: BuildingStyleSpec,
+  panels: number,
+  edgeLengthMeters: number,
+  isPrimaryEdge: boolean,
+  isSetback: boolean,
+  isTower: boolean,
+  budget: DetailBudgetConfig,
+): number {
+  if (
+    !budget.enableBayMiradores ||
+    isSetback ||
+    !isPrimaryEdge ||
+    isTower ||
+    style.isIndustrial ||
+    style.isSacred ||
+    style.isChalet ||
+    floorCount < 3 ||
+    edgeLengthMeters < 6.2 ||
+    panels < 2 ||
+    seed % 3 === 0
+  ) {
+    return -1;
+  }
+  return panels >= 4 ? (seed % 2 === 0 ? 1 : panels - 2) : Math.floor(panels / 2);
+}
+
+/**
+ * Determines whether a CityKit cantilevered balcony (or French balconera sill) belongs
+ * on a specific floor and bay index, matching chunk mesh door proportions.
+ */
+export function wantsBalconyOnBayFloor(
+  seed: number,
+  style: BuildingStyleSpec,
+  floor: number,
+  bay: number,
+  panels: number,
+  storeyH: number,
+  isSetback: boolean,
+  isPrimaryEdge: boolean,
+  isTower: boolean,
+  isMiradorCol: boolean,
+  budget: DetailBudgetConfig,
+): boolean {
+  if (isSetback || isTower || isMiradorCol || style.isIndustrial || storeyH < 2.25 || floor < 1) {
+    return false;
+  }
+  const pattern = seed % 3;
+  const isCenterBay = bay === Math.floor(panels / 2);
+  if (budget.profile === '600k') {
+    return (
+      (pattern === 0 && floor === 1 && !style.isChalet) ||
+      (pattern === 1 && isCenterBay && floor <= 4) ||
+      (pattern === 2 && (floor + bay) % 2 === 1 && isPrimaryEdge)
+    );
+  }
+  return (
+    (pattern === 0 && floor === 1 && !style.isChalet && (isPrimaryEdge || bay % 2 === 0)) ||
+    (pattern === 1 && (isCenterBay || (panels >= 4 && bay % 2 === 1)) && floor <= 4 && isPrimaryEdge) ||
+    (pattern === 2 && (floor + bay) % 2 === 1 && (isPrimaryEdge || floor <= 3))
+  );
+}
+

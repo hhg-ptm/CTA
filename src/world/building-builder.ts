@@ -2,20 +2,30 @@ import {
   collectBuildingDetails,
   computeExposedEdges,
   polygonSignedArea,
+  selectPrimaryStreetEdge,
   type AnalyzedBuilding,
 } from './building-details';
 import { BuildingGeometryWriter, type BuildingColor, type BuildingUv } from './building-geometry';
 import {
   classifyBuilding,
+  computeEdgeBayLayout,
+  DETAIL_BUDGET_CONFIGS,
   effectiveRoofShape,
   isTowerFeature,
+  selectMiradorBay,
   stableBuildingHash,
+  wantsBalconyOnBayFloor,
   type BuildingStyleSpec,
+  type DetailBudgetConfig,
 } from './building-styles';
 import {
+  addCornerQuoins,
+  addCorniceCorbels,
   addCourtyardWalls,
   addFacadeReliefFrames,
   addGabledEndWalls,
+  addGroundPorticoAndEntablature,
+  addProjectingMiradorColumn,
   addRecessedWindowCell,
   addStylizedRoof,
   buildSetbackPenthouseSpec,
@@ -31,6 +41,7 @@ import type {
   BuildingRoofAnchor,
   BuildingSignSlot,
   ChunkFeature,
+  DetailBudgetProfile,
   LandmarkModelInstance,
   ProjectedBounds,
 } from './types';
@@ -349,6 +360,8 @@ function addWalls(
   terrain: BuiltTerrainChunk,
   bounds: ProjectedBounds,
   lod: number,
+  budget: DetailBudgetConfig,
+  primaryEdgeIdx: number,
   makeCollider = false,
 ): void {
   const polygon = item.points;
@@ -357,6 +370,8 @@ function addWalls(
   const baseOffset = item.baseElevationOffset ?? 0;
   const isSetback = baseOffset > 0.1;
   const detailed = lod === 0;
+  const isTower = isTowerFeature(item.feature);
+  const keepPitched = lod === 0 || (lod === 1 && budget.enableRoofRidgeAndParapets);
 
   for (let edge = 0; edge < polygon.length; edge += 1) {
     const start = polygon[edge];
@@ -370,17 +385,19 @@ function addWalls(
         ? [(end[1] - start[1]) / length, -(end[0] - start[0]) / length]
         : [-(end[1] - start[1]) / length, (end[0] - start[0]) / length];
     const exposed = isSetback ? true : (exposedEdges[edge] ?? true);
-    const activeDetail = detailed && exposed && length >= 3.2;
-    const panels = activeDetail
-      ? Math.max(1, Math.min(5, Math.round(length / 5.6)))
-      : lod === 1 && exposed && length >= 7.0
-        ? 2
-        : 1;
-    const floors = activeDetail
-      ? Math.min(floorCount, 7)
-      : lod === 1 && exposed
-        ? Math.min(floorCount, 5)
-        : 1;
+    const { activeDetail, panels, floors } = computeEdgeBayLayout(
+      length,
+      floorCount,
+      style,
+      budget,
+      exposed,
+      lod,
+    );
+    const isPrimaryEdge = edge === primaryEdgeIdx;
+    const miradorBay = activeDetail
+      ? selectMiradorBay(seed, floors, style, panels, length, isPrimaryEdge, isSetback, isTower, budget)
+      : -1;
+    const storeyH = item.wallHeight / Math.max(1, floors);
     const startGround = localHeight(terrain, start);
     const endGround = localHeight(terrain, end);
 
@@ -397,11 +414,26 @@ function addWalls(
       ];
       const groundStart = startGround + (endGround - startGround) * t0;
       const groundEnd = startGround + (endGround - startGround) * t1;
+      const isMiradorCol = panel === miradorBay;
 
       for (let floor = 0; floor < floors; floor += 1) {
         const floorBottom = baseOffset + (item.wallHeight * floor) / floors;
         const floorTop = baseOffset + (item.wallHeight * (floor + 1)) / floors;
         if (activeDetail) {
+          const isMiradorUpperCell = isMiradorCol && floor >= 1;
+          const hasBalcony = wantsBalconyOnBayFloor(
+            seed,
+            style,
+            floor,
+            panel,
+            panels,
+            storeyH,
+            isSetback,
+            isPrimaryEdge,
+            isTower,
+            isMiradorCol,
+            budget,
+          );
           addRecessedWindowCell(
             writer,
             item,
@@ -416,6 +448,9 @@ function addWalls(
             panel,
             exposed,
             isSetback,
+            budget,
+            hasBalcony,
+            isMiradorUpperCell,
           );
         } else {
           const uvRow = style.atlasBand * 2 + (floor === 0 && !isSetback ? 0 : 1);
@@ -443,6 +478,19 @@ function addWalls(
           );
         }
       }
+
+      if (activeDetail && isMiradorCol && floors >= 2) {
+        addProjectingMiradorColumn(
+          writer,
+          item,
+          panelStart,
+          panelEnd,
+          outward,
+          groundStart,
+          groundEnd,
+          floors,
+        );
+      }
     }
 
     if (detailed && exposed) {
@@ -457,8 +505,50 @@ function addWalls(
         panels,
         floors,
       );
+      if (budget.enableArticulatedPorticos) {
+        addGroundPorticoAndEntablature(
+          writer,
+          item,
+          start,
+          end,
+          outward,
+          startGround,
+          endGround,
+          panels,
+          floors,
+          isPrimaryEdge,
+          isSetback,
+        );
+      }
+      if (budget.enableCornerQuoins) {
+        addCornerQuoins(
+          writer,
+          item,
+          start,
+          end,
+          outward,
+          startGround,
+          endGround,
+          exposed,
+          isSetback,
+        );
+      }
+      if (budget.enableCorniceCorbels) {
+        addCorniceCorbels(
+          writer,
+          item,
+          start,
+          end,
+          outward,
+          startGround,
+          endGround,
+          exposed,
+          isSetback,
+        );
+      }
       // Floor belt courses ("impostas")
       for (let floor = 0; floor < floors - 1; floor += 1) {
+        if (floor === 0 && budget.enableArticulatedPorticos && isPrimaryEdge && !isSetback) continue;
         const floorTop = baseOffset + (item.wallHeight * (floor + 1)) / floors;
         addProjectingStrip(
           writer,
@@ -492,23 +582,25 @@ function addWalls(
           style.atlasBand * 2,
         );
       }
-      // Top cornice molding ("cornisa") or flat roof parapet ("peto de azotea")
+      // Top cornice molding ("cornisa") when full hollow parapet isn't replacing it on flat roofs
       if (style.parapetHeightMeters > 0) {
-        const ph = style.parapetHeightMeters;
-        addProjectingStrip(
-          writer,
-          style.wallMaterial,
-          start,
-          end,
-          outward,
-          startGround,
-          endGround,
-          baseOffset + item.wallHeight - 0.14,
-          baseOffset + item.wallHeight + ph,
-          0.09,
-          style.trimColor,
-          style.atlasBand * 2 + 1,
-        );
+        if (!budget.enableRoofRidgeAndParapets) {
+          const ph = style.parapetHeightMeters;
+          addProjectingStrip(
+            writer,
+            style.wallMaterial,
+            start,
+            end,
+            outward,
+            startGround,
+            endGround,
+            baseOffset + item.wallHeight - 0.14,
+            baseOffset + item.wallHeight + ph,
+            0.09,
+            style.trimColor,
+            style.atlasBand * 2 + 1,
+          );
+        }
       } else {
         addProjectingStrip(
           writer,
@@ -537,13 +629,11 @@ function addWalls(
     }
   }
 
-  if (detailed) {
-    if (item.innerRings && item.innerRings.length > 0) {
-      addCourtyardWalls(writer, item, item.innerRings, terrain, bounds, true, tileUv);
-    }
-    if (item.shape === 'gabled') {
-      addGabledEndWalls(writer, item, terrain, bounds);
-    }
+  if (detailed && item.innerRings && item.innerRings.length > 0) {
+    addCourtyardWalls(writer, item, item.innerRings, terrain, bounds, true, tileUv);
+  }
+  if (keepPitched && item.shape === 'gabled') {
+    addGabledEndWalls(writer, item, terrain, bounds, detailed);
   }
 }
 
@@ -618,16 +708,19 @@ function signSlot(
 function buildLod(
   renderVolumes: readonly VolumeItem[],
   exposedMap: ReadonlyMap<string, readonly boolean[]>,
+  primaryEdgeMap: ReadonlyMap<string, number>,
   lod1Base: readonly VolumeItem[],
   features: readonly ChunkFeature[],
   terrain: BuiltTerrainChunk,
   bounds: ProjectedBounds,
   lod: number,
+  budget: DetailBudgetConfig,
 ): BuildingLodGeometry {
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerZ = (bounds.minZ + bounds.maxZ) / 2;
   const writer = new BuildingGeometryWriter(centerX, centerZ);
   const detailed = lod === 0;
+  const keepPitchedShape = detailed || (lod === 1 && budget.enableRoofRidgeAndParapets);
   const list = detailed ? renderVolumes : lod1Base;
 
   for (let i = 0; i < list.length; i += 1) {
@@ -638,9 +731,16 @@ function buildLod(
       /^landmarks\/w\d+\.glb$/.test(item.feature.landmarkModelPath)
     )
       continue;
-    const exposed = detailed ? (exposedMap.get(`${item.feature.id ?? ''}:${i}`) ?? []) : [];
-    addWalls(writer, item, exposed, terrain, bounds, lod);
-    addStylizedRoof(writer, item, terrain, detailed);
+    const key = `${item.feature.id ?? ''}:${i}`;
+    const exposed = detailed ? (exposedMap.get(key) ?? []) : [];
+    const primaryEdgeIdx = detailed ? (primaryEdgeMap.get(key) ?? -1) : -1;
+    addWalls(writer, item, exposed, terrain, bounds, lod, budget, primaryEdgeIdx);
+    addStylizedRoof(writer, item, terrain, {
+      lod,
+      keepPitchedShape,
+      enableRidgeAndParapets: detailed && budget.enableRoofRidgeAndParapets,
+      bounds,
+    });
   }
   addLandmarkGeometry(writer, features, terrain, bounds, lod);
   const surfaces = writer.build();
@@ -655,9 +755,11 @@ function buildExtras(
   baseAnalyzed: readonly VolumeItem[],
   detailVolumes: readonly VolumeItem[],
   exposedLod0Map: ReadonlyMap<string, readonly boolean[]>,
+  primaryEdgeDetailMap: ReadonlyMap<string, number>,
   features: readonly ChunkFeature[],
   terrain: BuiltTerrainChunk,
   bounds: ProjectedBounds,
+  budget: DetailBudgetConfig,
 ): {
   signs: BuildingSignSlot[];
   anchors: BuildingRoofAnchor[];
@@ -742,6 +844,8 @@ function buildExtras(
     roads,
     terrain,
     bounds,
+    budget,
+    primaryEdgeDetailMap,
   );
   return { signs, anchors, detailBatches, models, storks };
 }
@@ -750,7 +854,9 @@ export function buildBuildingChunk(
   features: readonly ChunkFeature[],
   terrain: BuiltTerrainChunk,
   bounds: ProjectedBounds,
+  detailBudget: DetailBudgetProfile = '1200k',
 ): BuiltBuildingChunk {
+  const budget = DETAIL_BUDGET_CONFIGS[detailBudget];
   const baseAnalyzed: VolumeItem[] = [];
   for (const feature of features) {
     if (feature.featureType !== 'building' || !feature.points || feature.points.length < 3)
@@ -759,21 +865,48 @@ export function buildBuildingChunk(
     if (item) baseAnalyzed.push(item);
   }
 
+  const roads = features.filter(
+    (feature) => feature.featureType === 'road' || feature.featureType === 'pedestrian',
+  );
   const { mainVolumes, setbackVolumes } = expandRenderVolumes(baseAnalyzed, bounds);
   const allLod0Volumes = [...mainVolumes, ...setbackVolumes];
   const exposedLod0Map = new Map<string, readonly boolean[]>();
   const exposedByVolumeIndex = new Map<string, readonly boolean[]>();
+  const primaryEdgeMap = new Map<string, number>();
+  const primaryEdgeByVolumeIndex = new Map<string, number>();
   for (let i = 0; i < allLod0Volumes.length; i += 1) {
     const vol = allLod0Volumes[i];
     if (!vol) continue;
     const neighbors = vol.baseElevationOffset ? [] : mainVolumes;
     const exp = computeExposedEdges(vol, neighbors, vol.wallHeight - 0.35);
-    exposedLod0Map.set(`${vol.feature.id ?? ''}:${i}`, exp);
-    exposedByVolumeIndex.set(`${vol.feature.id ?? ''}#${i}`, exp);
+    const primaryEdge = selectPrimaryStreetEdge(
+      vol.points,
+      exp,
+      roads,
+      bounds,
+      vol.feature.portalPoints,
+      budget.minEdgeMeters,
+    );
+    const key = `${vol.feature.id ?? ''}:${i}`;
+    const detailKey = `${vol.feature.id ?? ''}#${i}`;
+    exposedLod0Map.set(key, exp);
+    exposedByVolumeIndex.set(detailKey, exp);
+    primaryEdgeMap.set(key, primaryEdge);
+    primaryEdgeByVolumeIndex.set(detailKey, primaryEdge);
   }
 
   const levels = [0, 1, 2].map((lod) =>
-    buildLod(allLod0Volumes, exposedLod0Map, baseAnalyzed, features, terrain, bounds, lod),
+    buildLod(
+      allLod0Volumes,
+      exposedLod0Map,
+      primaryEdgeMap,
+      baseAnalyzed,
+      features,
+      terrain,
+      bounds,
+      lod,
+      budget,
+    ),
   );
   const detailVolumes = allLod0Volumes.map((vol, i) => ({
     ...vol,
@@ -783,15 +916,18 @@ export function buildBuildingChunk(
     baseAnalyzed,
     detailVolumes,
     exposedByVolumeIndex,
+    primaryEdgeByVolumeIndex,
     features,
     terrain,
     bounds,
+    budget,
   );
   const colliderWriter = new BuildingGeometryWriter(
     (bounds.minX + bounds.maxX) / 2,
     (bounds.minZ + bounds.maxZ) / 2,
   );
-  for (const item of baseAnalyzed) addWalls(colliderWriter, item, [], terrain, bounds, 2, true);
+  for (const item of baseAnalyzed)
+    addWalls(colliderWriter, item, [], terrain, bounds, 2, budget, -1, true);
   const collider = colliderWriter.buildCollider();
   const footprints = features
     .filter(

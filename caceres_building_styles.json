@@ -21,8 +21,16 @@
       "zone": "casco",
       "wallMaterial": "casco_facade",
       "atlasBand": 0,
-      "baseTintRgb": [0.97, 0.92, 0.84],
-      "plinthColorRgb": [0.55, 0.5, 0.42],
+      "baseTintRgb": [
+        0.97,
+        0.92,
+        0.84
+      ],
+      "plinthColorRgb": [
+        0.55,
+        0.5,
+        0.42
+      ],
       "tileRoofDefault": true,
       "windowKind": "window_casco",
       "balconyKind": "balcony",
@@ -40,8 +48,16 @@
       "zone": "casco",
       "wallMaterial": "casco_facade",
       "atlasBand": 1,
-      "baseTintRgb": [0.99, 0.97, 0.93],
-      "plinthColorRgb": [0.58, 0.53, 0.45],
+      "baseTintRgb": [
+        0.99,
+        0.97,
+        0.93
+      ],
+      "plinthColorRgb": [
+        0.58,
+        0.53,
+        0.45
+      ],
       "tileRoofDefault": true,
       "windowKind": "window_casco",
       "balconyKind": "balcony",
@@ -57,8 +73,16 @@
       "zone": "casco",
       "wallMaterial": "casco_facade",
       "atlasBand": 2,
-      "baseTintRgb": [0.98, 0.91, 0.8],
-      "plinthColorRgb": [0.55, 0.49, 0.41],
+      "baseTintRgb": [
+        0.98,
+        0.91,
+        0.8
+      ],
+      "plinthColorRgb": [
+        0.55,
+        0.49,
+        0.41
+      ],
       "tileRoofDefault": true,
       "windowKind": "window_casco",
       "balconyKind": "balcony",
@@ -74,8 +98,16 @@
       "zone": "casco",
       "wallMaterial": "casco_facade",
       "atlasBand": 3,
-      "baseTintRgb": [0.96, 0.86, 0.78],
-      "plinthColorRgb": [0.54, 0.47, 0.4],
+      "baseTintRgb": [
+        0.96,
+        0.86,
+        0.78
+      ],
+      "plinthColorRgb": [
+        0.54,
+        0.47,
+        0.4
+      ],
       "tileRoofDefault": true,
       "windowKind": "window_casco",
       "balconyKind": "balcony",
@@ -91,8 +123,16 @@
       "zone": "ensanche",
       "wallMaterial": "ensanche_facade",
       "atlasBand": 0,
-      "baseTintRgb": [0.98, 0.92, 0.89],
-      "plinthColorRgb": [0.52, 0.5, 0.47],
+      "baseTintRgb": [
+        0.98,
+        0.92,
+        0.89
+      ],
+      "plinthColorRgb": [
+        0.52,
+        0.5,
+        0.47
+      ],
       "tileRoofDefault": "when_non_flat",
       "windowKind": "window_ensanche",
       "balconyKind": "balcony_modern",
@@ -108,8 +148,16 @@
       "zone": "ensanche",
       "wallMaterial": "ensanche_facade",
       "atlasBand": 1,
-      "baseTintRgb": [0.98, 0.94, 0.88],
-      "plinthColorRgb": [0.58, 0.56, 0.52],
+      "baseTintRgb": [
+        0.98,
+        0.94,
+        0.88
+      ],
+      "plinthColorRgb": [
+        0.58,
+        0.56,
+        0.52
+      ],
       "tileRoofDefault": "when_non_flat",
       "windowKind": "window_ensanche",
       "balconyKind": "balcony_modern",
@@ -125,8 +173,16 @@
       "zone": "ensanche",
       "wallMaterial": "ensanche_facade",
       "atlasBand": 2,
-      "baseTintRgb": [0.97, 0.89, 0.83],
-      "plinthColorRgb": [0.56, 0.52, 0.48],
+      "baseTintRgb": [
+        0.97,
+        0.89,
+        0.83
+      ],
+      "plinthColorRgb": [
+        0.56,
+        0.52,
+        0.48
+      ],
       "tileRoofDefault": "when_non_flat",
       "windowKind": "window_ensanche",
       "balconyKind": "balcony_modern",
@@ -142,8 +198,16 @@
       "zone": "ensanche",
       "wallMaterial": "ensanche_facade",
       "atlasBand": 3,
-      "baseTintRgb": [0.96, 0.97, 0.98],
-      "plinthColorRgb": [0.46, 0.48, 0.5],
+      "baseTintRgb": [
+        0.96,
+        0.97,
+        0.98
+      ],
+      "plinthColorRgb": [
+        0.46,
+        0.48,
+        0.5
+      ],
       "tileRoofDefault": false,
       "windowKind": "window_modern",
       "balconyKind": "balcony_modern",
@@ -159,8 +223,16 @@
       "zone": "periferia",
       "wallMaterial": "periferia_facade",
       "atlasBand": 0,
-      "baseTintRgb": [0.98, 0.96, 0.92],
-      "plinthColorRgb": [0.64, 0.54, 0.46],
+      "baseTintRgb": [
+        0.98,
+        0.96,
+        0.92
+      ],
+      "plinthColorRgb": [
+        0.64,
+        0.54,
+        0.46
+      ],
       "tileRoofDefault": true,
       "windowKind": "window_modern",
       "balconyKind": "balcony_modern",
@@ -176,8 +248,16 @@
       "zone": "periferia",
       "wallMaterial": "periferia_facade",
       "atlasBand": 1,
-      "baseTintRgb": [0.96, 0.92, 0.86],
-      "plinthColorRgb": [0.56, 0.54, 0.5],
+      "baseTintRgb": [
+        0.96,
+        0.92,
+        0.86
+      ],
+      "plinthColorRgb": [
+        0.56,
+        0.54,
+        0.5
+      ],
       "tileRoofDefault": "when_osm_tile",
       "windowKind": "window_ensanche",
       "balconyKind": "balcony_modern",
@@ -193,8 +273,16 @@
       "zone": "periferia",
       "wallMaterial": "periferia_facade",
       "atlasBand": 2,
-      "baseTintRgb": [0.93, 0.95, 0.97],
-      "plinthColorRgb": [0.5, 0.52, 0.54],
+      "baseTintRgb": [
+        0.93,
+        0.95,
+        0.97
+      ],
+      "plinthColorRgb": [
+        0.5,
+        0.52,
+        0.54
+      ],
       "tileRoofDefault": false,
       "windowKind": "window_modern",
       "balconyKind": "balcony_modern",
@@ -209,8 +297,16 @@
       "zone": "periferia",
       "wallMaterial": "periferia_facade",
       "atlasBand": 3,
-      "baseTintRgb": [0.96, 0.94, 0.9],
-      "plinthColorRgb": [0.52, 0.52, 0.5],
+      "baseTintRgb": [
+        0.96,
+        0.94,
+        0.9
+      ],
+      "plinthColorRgb": [
+        0.52,
+        0.52,
+        0.5
+      ],
       "tileRoofDefault": false,
       "windowKind": "window_modern",
       "balconyKind": "balcony_modern",
@@ -229,16 +325,31 @@
       "4. heuristic_fallback flagged explicitly when osmLevels/osmHeight and Catastro floors are absent or 0"
     ],
     "floorHeightMetersByTypology": {
-      "historic_casco": { "groundFloorMeters": 3.8, "upperFloorMeters": 3.2 },
+      "historic_casco": {
+        "groundFloorMeters": 3.8,
+        "upperFloorMeters": 3.2
+      },
       "residential_ensanche": {
         "groundFloorMetersWithRetail": 4.1,
         "groundFloorMetersResidential": 3.4,
-        "upperFloorMeters": 3.0
+        "upperFloorMeters": 3
       },
-      "residential_modern_block": { "groundFloorMeters": 3.8, "upperFloorMeters": 2.95 },
-      "chalet_or_rowhouse": { "groundFloorMeters": 3.1, "upperFloorMeters": 2.85 },
-      "industrial_nave": { "groundFloorMeters": 5.8, "upperFloorMeters": 3.6 },
-      "civic_institutional_campus": { "groundFloorMeters": 4.4, "upperFloorMeters": 3.7 }
+      "residential_modern_block": {
+        "groundFloorMeters": 3.8,
+        "upperFloorMeters": 2.95
+      },
+      "chalet_or_rowhouse": {
+        "groundFloorMeters": 3.1,
+        "upperFloorMeters": 2.85
+      },
+      "industrial_nave": {
+        "groundFloorMeters": 5.8,
+        "upperFloorMeters": 3.6
+      },
+      "civic_institutional_campus": {
+        "groundFloorMeters": 4.4,
+        "upperFloorMeters": 3.7
+      }
     },
     "proceduralEnvelopeUpgrades": {
       "multiVolumeSetbacks": "Split buildings with catastroPartCount > 1 into primary mass + secondary wings / attic setback when upper floor count < max floors.",
@@ -247,34 +358,73 @@
       "portalPlacement": "Prioritize ground-floor residential portals on edges nearest matched Catastro AD coordinates (5,688 matched buildings) and shopfront awnings on retail frontages."
     },
     "stylizedLowPolyPaletteHex": {
-      "cascoQuartzite": ["#C9B89A", "#B8A586", "#D6C5A7"],
-      "limewash": ["#F6F1E7", "#EFE8DA", "#E7DEC9"],
-      "ochreAndTerre": ["#E2BE89", "#D79E70", "#C87D55"],
-      "brickAndTerracotta": ["#BA6347", "#A9543B", "#C87354"],
-      "ensancheRender": ["#ECE3D4", "#DFD3BF", "#D2C4B0", "#E5D8C5"],
-      "modernNeutral": ["#DCE3EA", "#B8C4CF", "#8E9BA8", "#505A66"],
-      "arabicTileRoof": ["#B55538", "#C46342", "#9E462D"],
-      "modernSlateOrGravelRoof": ["#646B73", "#7E848C", "#545B62"],
-      "accentShutters": ["#3E5C45", "#5B4031", "#415466", "#8B4332"]
+      "cascoQuartzite": [
+        "#C9B89A",
+        "#B8A586",
+        "#D6C5A7"
+      ],
+      "limewash": [
+        "#F6F1E7",
+        "#EFE8DA",
+        "#E7DEC9"
+      ],
+      "ochreAndTerre": [
+        "#E2BE89",
+        "#D79E70",
+        "#C87D55"
+      ],
+      "brickAndTerracotta": [
+        "#BA6347",
+        "#A9543B",
+        "#C87354"
+      ],
+      "ensancheRender": [
+        "#ECE3D4",
+        "#DFD3BF",
+        "#D2C4B0",
+        "#E5D8C5"
+      ],
+      "modernNeutral": [
+        "#DCE3EA",
+        "#B8C4CF",
+        "#8E9BA8",
+        "#505A66"
+      ],
+      "arabicTileRoof": [
+        "#B55538",
+        "#C46342",
+        "#9E462D"
+      ],
+      "modernSlateOrGravelRoof": [
+        "#646B73",
+        "#7E848C",
+        "#545B62"
+      ],
+      "accentShutters": [
+        "#3E5C45",
+        "#5B4031",
+        "#415466",
+        "#8B4332"
+      ]
     }
   },
   "cityKitAudit": {
     "buildingModules": [
       {
         "id": "balcony",
-        "trisLod0": 180,
-        "trisLod1": 72,
-        "bytesLod0": 22520,
-        "bytesLod1": 14956,
+        "trisLod0": 276,
+        "trisLod1": 192,
+        "bytesLod0": 28032,
+        "bytesLod1": 22152,
         "auditVerdict": "upgraded_phase2",
         "notes": "Upgraded in Blender with carved brackets, wrought railings, and terracotta planter boxes."
       },
       {
         "id": "balcony-modern",
-        "trisLod0": 108,
-        "trisLod1": 60,
-        "bytesLod0": 17472,
-        "bytesLod1": 14112,
+        "trisLod0": 140,
+        "trisLod1": 108,
+        "bytesLod0": 18376,
+        "bytesLod1": 16264,
         "auditVerdict": "upgraded_phase2",
         "notes": "Upgraded in Blender with projecting concrete slab and glass balustrade."
       },
@@ -282,8 +432,8 @@
         "id": "window-casco",
         "trisLod0": 96,
         "trisLod1": 60,
-        "bytesLod0": 16636,
-        "bytesLod1": 14116,
+        "bytesLod0": 15428,
+        "bytesLod1": 12908,
         "auditVerdict": "upgraded_phase2",
         "notes": "Deep embrasure variant in CityKit v2; regular facade bays also use mesh-baked 3D recessed openings."
       },
@@ -291,8 +441,8 @@
         "id": "window-ensanche",
         "trisLod0": 84,
         "trisLod1": 60,
-        "bytesLod0": 15816,
-        "bytesLod1": 14136,
+        "bytesLod0": 14608,
+        "bytesLod1": 12928,
         "auditVerdict": "upgraded_phase2",
         "notes": "Includes outer persiana box and deep surround frame."
       },
@@ -300,8 +450,8 @@
         "id": "window-modern",
         "trisLod0": 84,
         "trisLod1": 60,
-        "bytesLod0": 15784,
-        "bytesLod1": 14104,
+        "bytesLod0": 14576,
+        "bytesLod1": 12896,
         "auditVerdict": "upgraded_phase2",
         "notes": "Anodized mullioned frame with Stylized Low Poly cobalt glazing."
       },
@@ -309,35 +459,35 @@
         "id": "window-awning",
         "trisLod0": 96,
         "trisLod1": 72,
-        "bytesLod0": 16652,
-        "bytesLod1": 14972,
+        "bytesLod0": 15444,
+        "bytesLod1": 13764,
         "auditVerdict": "added_phase2",
         "notes": "Added in FASE 2 for scalloped window awnings matching Stylized Low Poly style."
       },
       {
         "id": "portal-casco",
-        "trisLod0": 120,
+        "trisLod0": 156,
         "trisLod1": 84,
-        "bytesLod0": 18328,
-        "bytesLod1": 15808,
+        "bytesLod0": 19640,
+        "bytesLod1": 14600,
         "auditVerdict": "upgraded_phase2",
         "notes": "Stone voussoir arch aligned toward matched Catastro AD entrances."
       },
       {
         "id": "portal-modern",
-        "trisLod0": 84,
+        "trisLod0": 148,
         "trisLod1": 60,
-        "bytesLod0": 15796,
-        "bytesLod1": 14128,
+        "bytesLod0": 20360,
+        "bytesLod1": 12920,
         "auditVerdict": "upgraded_phase2",
         "notes": "Projecting canopy vestibule with glazed double doors."
       },
       {
         "id": "shopfront-awning",
-        "trisLod0": 96,
+        "trisLod0": 132,
         "trisLod1": 60,
-        "bytesLod0": 16656,
-        "bytesLod1": 14132,
+        "bytesLod0": 17964,
+        "bytesLod1": 12924,
         "auditVerdict": "upgraded_phase2",
         "notes": "Ground commercial bay with fabric awning and recessed glazing."
       },
@@ -345,8 +495,8 @@
         "id": "industrial-door",
         "trisLod0": 88,
         "trisLod1": 48,
-        "bytesLod0": 15836,
-        "bytesLod1": 13288,
+        "bytesLod0": 14628,
+        "bytesLod1": 12080,
         "auditVerdict": "upgraded_phase2",
         "notes": "Corrugated industrial bay gate with hood trim."
       },
@@ -354,17 +504,17 @@
         "id": "pilaster-corner",
         "trisLod0": 48,
         "trisLod1": 24,
-        "bytesLod0": 13292,
-        "bytesLod1": 11608,
+        "bytesLod0": 12084,
+        "bytesLod1": 10396,
         "auditVerdict": "retained",
         "notes": "Stone corner quoin strip (paired with mesh-level pilasters in building-volumes.ts)."
       },
       {
         "id": "chimney",
-        "trisLod0": 76,
+        "trisLod0": 88,
         "trisLod1": 36,
-        "bytesLod0": 14984,
-        "bytesLod1": 12432,
+        "bytesLod0": 14612,
+        "bytesLod1": 11220,
         "auditVerdict": "upgraded_phase2",
         "notes": "Brick/mortar stack with clay flue pots for pitched Casco & chalet roofs."
       },
@@ -372,8 +522,8 @@
         "id": "dormer-roof",
         "trisLod0": 60,
         "trisLod1": 48,
-        "bytesLod0": 14124,
-        "bytesLod1": 13280,
+        "bytesLod0": 12916,
+        "bytesLod1": 12072,
         "auditVerdict": "upgraded_phase2",
         "notes": "Pitched dormer loft window with terracotta gable cheek."
       },
@@ -381,8 +531,8 @@
         "id": "rooftop-penthouse",
         "trisLod0": 72,
         "trisLod1": 36,
-        "bytesLod0": 14960,
-        "bytesLod1": 12432,
+        "bytesLod0": 13752,
+        "bytesLod1": 11224,
         "auditVerdict": "upgraded_phase2",
         "notes": "Rooftop stair bulkheads paired with true setback attic volumes."
       },
@@ -390,8 +540,8 @@
         "id": "rooftop-hvac",
         "trisLod0": 72,
         "trisLod1": 12,
-        "bytesLod0": 14564,
-        "bytesLod1": 10736,
+        "bytesLod0": 13356,
+        "bytesLod1": 9528,
         "auditVerdict": "retained",
         "notes": "HVAC cooling unit for flat commercial, industrial, and Ensanche roofs."
       },
@@ -399,8 +549,8 @@
         "id": "rooftop-solar",
         "trisLod0": 60,
         "trisLod1": 36,
-        "bytesLod0": 13916,
-        "bytesLod1": 12424,
+        "bytesLod0": 12708,
+        "bytesLod1": 11216,
         "auditVerdict": "added_phase2",
         "notes": "Added in FASE 2 for modern apartment and commercial flat roofs."
       },
@@ -408,8 +558,8 @@
         "id": "bell-gable",
         "trisLod0": 120,
         "trisLod1": 88,
-        "bytesLod0": 18088,
-        "bytesLod1": 15976,
+        "bytesLod0": 16880,
+        "bytesLod1": 14768,
         "auditVerdict": "retained",
         "notes": "Espadaña silhouette for historic chapels and convents."
       },
@@ -417,8 +567,8 @@
         "id": "corner-turret",
         "trisLod0": 96,
         "trisLod1": 64,
-        "bytesLod0": 16072,
-        "bytesLod1": 14152,
+        "bytesLod0": 14864,
+        "bytesLod1": 12944,
         "auditVerdict": "retained",
         "notes": "Corner bartizan accent for historic towers."
       },
@@ -426,8 +576,8 @@
         "id": "heraldic-crest",
         "trisLod0": 48,
         "trisLod1": 24,
-        "bytesLod0": 13288,
-        "bytesLod1": 11604,
+        "bytesLod0": 12080,
+        "bytesLod1": 10396,
         "auditVerdict": "retained",
         "notes": "Carved escutcheon mounted above casco_palace portals."
       }
@@ -437,8 +587,8 @@
         "id": "street-lamp",
         "trisLod0": 108,
         "trisLod1": 72,
-        "bytesLod0": 16828,
-        "bytesLod1": 14884,
+        "bytesLod0": 15620,
+        "bytesLod1": 13676,
         "auditVerdict": "retained",
         "notes": "Historic Casco street lantern."
       },
@@ -446,8 +596,8 @@
         "id": "street-lamp-modern",
         "trisLod0": 76,
         "trisLod1": 60,
-        "bytesLod0": 14984,
-        "bytesLod1": 14116,
+        "bytesLod0": 13776,
+        "bytesLod1": 12908,
         "auditVerdict": "added_phase2",
         "notes": "Added in FASE 2 for modern Ensanche and Periferia avenues."
       },
@@ -455,8 +605,8 @@
         "id": "tree",
         "trisLod0": 376,
         "trisLod1": 108,
-        "bytesLod0": 46140,
-        "bytesLod1": 19176,
+        "bytesLod0": 44932,
+        "bytesLod1": 17968,
         "auditVerdict": "retained_fallback",
         "notes": "Default fallback tree silhouette."
       },
@@ -464,8 +614,8 @@
         "id": "tree-deciduous",
         "trisLod0": 376,
         "trisLod1": 108,
-        "bytesLod0": 46160,
-        "bytesLod1": 19196,
+        "bytesLod0": 44952,
+        "bytesLod1": 17988,
         "auditVerdict": "added_phase2",
         "notes": "Deciduous plane/park tree variant."
       },
@@ -473,8 +623,8 @@
         "id": "tree-oak",
         "trisLod0": 316,
         "trisLod1": 108,
-        "bytesLod0": 40220,
-        "bytesLod1": 19312,
+        "bytesLod0": 38944,
+        "bytesLod1": 18168,
         "auditVerdict": "added_phase2",
         "notes": "Extremadura holm oak (encina) multi-lobe canopy."
       },
@@ -482,17 +632,17 @@
         "id": "tree-pine",
         "trisLod0": 96,
         "trisLod1": 64,
-        "bytesLod0": 15968,
-        "bytesLod1": 14108,
+        "bytesLod0": 14644,
+        "bytesLod1": 12912,
         "auditVerdict": "added_phase2",
         "notes": "Layered conical conifer (pino)."
       },
       {
         "id": "tree-palm",
-        "trisLod0": 332,
+        "trisLod0": 352,
         "trisLod1": 144,
-        "bytesLod0": 33332,
-        "bytesLod1": 20364,
+        "bytesLod0": 33548,
+        "bytesLod1": 19176,
         "auditVerdict": "added_phase2",
         "notes": "Palm tree variant for Paseo de Cánovas and boulevards."
       },
@@ -500,8 +650,8 @@
         "id": "tree-cypress",
         "trisLod0": 88,
         "trisLod1": 64,
-        "bytesLod0": 15428,
-        "bytesLod1": 14196,
+        "bytesLod0": 14220,
+        "bytesLod1": 12984,
         "auditVerdict": "added_phase2",
         "notes": "Columnar Mediterranean cypress for Casco cloisters and plazas."
       },
@@ -509,8 +659,8 @@
         "id": "shrub",
         "trisLod0": 140,
         "trisLod1": 60,
-        "bytesLod0": 23408,
-        "bytesLod1": 15244,
+        "bytesLod0": 22200,
+        "bytesLod1": 14036,
         "auditVerdict": "added_phase2",
         "notes": "Clustered low-poly garden shrub."
       },
@@ -518,8 +668,8 @@
         "id": "hedge",
         "trisLod0": 36,
         "trisLod1": 24,
-        "bytesLod0": 12408,
-        "bytesLod1": 11564,
+        "bytesLod0": 11196,
+        "bytesLod1": 10356,
         "auditVerdict": "added_phase2",
         "notes": "Trimmed park hedge segment."
       },
@@ -527,8 +677,8 @@
         "id": "bus-shelter",
         "trisLod0": 132,
         "trisLod1": 108,
-        "bytesLod0": 19140,
-        "bytesLod1": 17460,
+        "bytesLod0": 17932,
+        "bytesLod1": 16252,
         "auditVerdict": "added_phase2",
         "notes": "Glazed transit shelter for Cáceres urban bus stops."
       },
@@ -536,8 +686,8 @@
         "id": "park-bench",
         "trisLod0": 72,
         "trisLod1": 48,
-        "bytesLod0": 14964,
-        "bytesLod1": 13280,
+        "bytesLod0": 13756,
+        "bytesLod1": 12072,
         "auditVerdict": "added_phase2",
         "notes": "Wood-and-iron public bench."
       },
@@ -545,8 +695,8 @@
         "id": "waste-bin",
         "trisLod0": 76,
         "trisLod1": 52,
-        "bytesLod0": 14584,
-        "bytesLod1": 13284,
+        "bytesLod0": 13376,
+        "bytesLod1": 12076,
         "auditVerdict": "added_phase2",
         "notes": "Street waste bin."
       },
@@ -554,8 +704,8 @@
         "id": "fountain",
         "trisLod0": 132,
         "trisLod1": 80,
-        "bytesLod0": 17988,
-        "bytesLod1": 14988,
+        "bytesLod0": 16780,
+        "bytesLod1": 13780,
         "auditVerdict": "added_phase2",
         "notes": "Granite bowl fountain for Casco and Cánovas plazas."
       },
@@ -563,8 +713,8 @@
         "id": "traffic-signals",
         "trisLod0": 92,
         "trisLod1": 60,
-        "bytesLod0": 15844,
-        "bytesLod1": 14116,
+        "bytesLod0": 14636,
+        "bytesLod1": 12908,
         "auditVerdict": "retained",
         "notes": "Clean silhouette for 123 mapped junctions."
       },
@@ -572,8 +722,8 @@
         "id": "stop-sign",
         "trisLod0": 76,
         "trisLod1": 52,
-        "bytesLod0": 14584,
-        "bytesLod1": 13284,
+        "bytesLod0": 13376,
+        "bytesLod1": 12076,
         "auditVerdict": "retained",
         "notes": "Octagonal traffic sign."
       },
@@ -581,12 +731,12 @@
         "id": "give-way-sign",
         "trisLod0": 44,
         "trisLod1": 36,
-        "bytesLod0": 12844,
-        "bytesLod1": 12408,
+        "bytesLod0": 11636,
+        "bytesLod1": 11200,
         "auditVerdict": "retained",
         "notes": "Triangular traffic sign."
       }
     ],
-    "atlasCompressionNote": "CityKit v2 upgraded to schemaVersion 3 with 256x192 (8x6 swatch grid) shared atlas across all 72 GLBs (total 1,198,984 B), adding 14 new architectural, vegetation, and street furniture modules."
+    "atlasCompressionNote": "CityKit v3 regenerated via tools/generate_citykit.py with clean Stylized Low Poly atlas (72 GLBs, total 1,145,568 B)."
   }
 }
