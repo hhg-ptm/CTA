@@ -7,6 +7,7 @@ import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { buildChunkBorderGeometry } from './chunk-debug';
 import { ChunkDebugOverlays } from './debug-overlays';
 import { BuildingRenderer } from './building-renderer';
+import { BlenderBuildingRenderer, type BlenderQuadrantCell } from './blender-building-renderer';
 import { CityKit } from './city-kit';
 import { sampleHeight } from './road-geometry';
 import { RoadRenderer } from './road-renderer';
@@ -16,6 +17,7 @@ import { createTerrainDetailTexture } from './materials';
 import { TerrainColliders } from './terrain-physics';
 import { DETAIL_BUDGET_CONFIGS } from './building-styles';
 import type {
+  BuildingPipelineMode,
   BuiltTerrainChunk,
   ChunkEntry,
   DetailBudgetProfile,
@@ -35,6 +37,7 @@ interface ChunkRecord {
   meshes?: THREE.Mesh[];
   buildingMeshes?: THREE.Mesh[][];
   buildingDetailMeshes?: THREE.Mesh[][];
+  blenderCells?: BlenderQuadrantCell[];
   decorationMeshes?: THREE.Mesh[];
   landmarkObjects?: THREE.Object3D[];
   storks?: THREE.Group[];
@@ -212,6 +215,8 @@ export class ChunkManager {
   });
   private readonly roadRenderer = new RoadRenderer();
   private readonly buildingRenderer = new BuildingRenderer();
+  private readonly blenderBuildings: BlenderBuildingRenderer;
+  private readonly buildingPipelineOverride?: BuildingPipelineMode;
   private readonly cityKit: CityKit | undefined;
   private readonly debugOverlays: ChunkDebugOverlays;
   private readonly debugBorderMaterial = new THREE.LineBasicMaterial({
@@ -229,6 +234,8 @@ export class ChunkManager {
   private readonly loadQueue: string[] = [];
   private workerBusy = false;
   private lastSchedule = 0;
+  private lastCameraX = 0;
+  private lastCameraZ = 0;
   private memoryBytes = 0;
   private errorCount = 0;
   private closed = false;
@@ -241,10 +248,13 @@ export class ChunkManager {
     worldBaseUrl: URL,
     cityKitEnabled = false,
     detailBudget: DetailBudgetProfile = '1200k',
+    buildingPipeline?: BuildingPipelineMode,
   ) {
     this.scene = scene;
     this.world = physicsWorld;
     this.detailBudget = detailBudget;
+    this.buildingPipelineOverride = buildingPipeline;
+    this.blenderBuildings = new BlenderBuildingRenderer(worldBaseUrl);
     this.cityKit = cityKitEnabled ? new CityKit(worldBaseUrl) : undefined;
     this.debugOverlays = new ChunkDebugOverlays(scene);
     this.colliders = new TerrainColliders(physicsWorld);
@@ -263,13 +273,24 @@ export class ChunkManager {
     this.manifest = manifest;
   }
 
+  private get effectiveBuildingPipeline(): BuildingPipelineMode {
+    return this.buildingPipelineOverride ?? this.manifest?.buildingPipeline ?? 'procedural';
+  }
+
   async prepareRenderer(renderer: THREE.WebGLRenderer, camera: THREE.Camera): Promise<void> {
     this.assets = new AssetManager(renderer);
     await Promise.all([
       this.roadRenderer.prepare(renderer, this.scene, camera, this.material),
       this.buildingRenderer.prepare(renderer, this.scene, camera, this.material),
     ]);
-    if (this.cityKit) await this.cityKit.prepare((url, priority) => this.loadModel(url, priority));
+    const prepTasks: Promise<void>[] = [];
+    if (this.cityKit) prepTasks.push(this.cityKit.prepare((url, priority) => this.loadModel(url, priority)));
+    if (this.effectiveBuildingPipeline === 'blender-library') {
+      prepTasks.push(
+        this.blenderBuildings.prepare((url, priority) => this.loadModel(url, priority)),
+      );
+    }
+    if (prepTasks.length > 0) await Promise.all(prepTasks);
   }
 
   loadModel(url: string, priority = 0): Promise<GLTF> {
@@ -289,6 +310,8 @@ export class ChunkManager {
     const nextQueue: string[] = [];
     const x = camera.position.x;
     const z = camera.position.z;
+    this.lastCameraX = x;
+    this.lastCameraZ = z;
     const loadRadius = this.manifest.chunkMeters * 2;
     const unloadRadius = this.manifest.chunkMeters * 2.4;
     const colliderRadius = this.manifest.chunkMeters * 0.75;
@@ -320,6 +343,7 @@ export class ChunkManager {
       if (record.state === 'queued' && distance <= unloadRadius) nextQueue.push(entry.id);
       if (record.state !== 'loaded') continue;
       this.setLod(record, this.lodForDistance(boundsDistance));
+      this.syncBlenderCellLods(record, x, z);
       const needsCollider = distance <= colliderRadius;
       if (needsCollider && !record.hasCollider && record.result) {
         this.addColliders(record);
@@ -468,6 +492,7 @@ export class ChunkManager {
     this.material.dispose();
     this.roadRenderer.dispose();
     this.buildingRenderer.dispose();
+    this.blenderBuildings.dispose();
     this.cityKit?.dispose();
     this.assets?.dispose();
     this.debugBorderMaterial.dispose();
@@ -518,6 +543,28 @@ export class ChunkManager {
     for (const stork of record.storks ?? []) stork.visible = lod === 0;
     for (const sign of record.signs ?? []) sign.visible = lod === 0;
     this.syncDebugOverlays(record);
+  }
+
+  private syncBlenderCellLods(record: ChunkRecord, camX: number, camZ: number): void {
+    const cells = record.blenderCells;
+    if (!cells || cells.length === 0) return;
+    for (const cell of cells) {
+      const dist = Math.hypot(camX - cell.centerX, camZ - cell.centerZ);
+      const targetLod: 0 | 1 | 2 = dist < 82 ? 0 : dist < 180 ? 1 : 2;
+      if (cell.activeLod === targetLod) continue;
+      const prevLod = cell.activeLod;
+      if (prevLod !== -1) {
+        for (const mesh of cell.lods[prevLod]) {
+          mesh.visible = false;
+          this.scene.remove(mesh);
+        }
+      }
+      cell.activeLod = targetLod;
+      for (const mesh of cell.lods[targetLod] ?? []) {
+        mesh.visible = true;
+        this.scene.add(mesh);
+      }
+    }
   }
 
   private processCompleted(): void {
@@ -582,12 +629,17 @@ export class ChunkManager {
         mesh.visible = true;
         this.scene.add(mesh);
       }
+      const blenderCells = this.blenderBuildings.isReady
+        ? this.blenderBuildings.createQuadrantCells(item.result.buildings, record.entry.bounds)
+        : [];
       record.result = item.result;
       if (item.result.roads)
         this.roadHeights.set(item.id, new RoadHeightIndex(item.result.roads, record.entry.bounds));
       record.meshes = meshes;
       record.buildingMeshes = buildingMeshes;
       record.buildingDetailMeshes = buildingDetailMeshes;
+      record.blenderCells = blenderCells;
+      this.syncBlenderCellLods(record, this.lastCameraX, this.lastCameraZ);
       record.decorationMeshes = decorationMeshes;
       record.storks = (item.result.buildings?.storks ?? []).map((instance) => {
         const stork = createStork();
@@ -770,7 +822,12 @@ export class ChunkManager {
       if (actualHash !== record.entry.sha256)
         throw new Error(`Chunk ${record.entry.id} integrity check failed.`);
       this.worker.postMessage(
-        { id: record.entry.id, buffer, detailBudget: this.detailBudget },
+        {
+          id: record.entry.id,
+          buffer,
+          detailBudget: this.detailBudget,
+          buildingPipeline: this.effectiveBuildingPipeline,
+        },
         [buffer],
       );
     } catch (error) {
@@ -827,6 +884,16 @@ export class ChunkManager {
         for (const mesh of level) {
           this.scene.remove(mesh);
           if (mesh.geometry.userData.sharedGeometry !== true) mesh.geometry.dispose();
+        }
+      }
+    }
+    if (record.blenderCells) {
+      for (const cell of record.blenderCells) {
+        for (const lodMeshes of cell.lods) {
+          for (const mesh of lodMeshes) {
+            this.scene.remove(mesh);
+            if (mesh.geometry.userData.sharedGeometry !== true) mesh.geometry.dispose();
+          }
         }
       }
     }

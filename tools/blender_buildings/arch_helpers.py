@@ -595,3 +595,40 @@ def add_stylized_tree(
             for f in bm.faces:
                 if all(v in vset for v in f.verts):
                     f.material_index = foliage_mat
+
+
+def add_subplinth_foundation(
+    bm: bmesh.types.BMesh,
+    center_xy: tuple[float, float],
+    width: float,
+    depth: float,
+    mat_idx: int,
+    embed_depth: float = 0.72,
+) -> None:
+    """Extend solid foundation masonry below Z=0 so hills on Cáceres streets never expose floating corners."""
+    bm_add_box(
+        bm,
+        (center_xy[0], center_xy[1], -embed_depth * 0.5 + 0.015),
+        (max(0.4, width - 0.04), max(0.4, depth - 0.04), embed_depth + 0.03),
+        mat_idx,
+    )
+
+
+def add_stork_nest(
+    bm: bmesh.types.BMesh,
+    pos: tuple[float, float, float],
+    twig_mat: int,
+    bird_white_mat: int,
+    beak_mat: int,
+) -> None:
+    """Signature Cáceres stylized stork nest perched on historic tower / bell gable corners."""
+    x, y, z = pos
+    bm_add_cylinder(bm, (x, y, z + 0.16), 0.52, 0.62, 0.34, 9, twig_mat)
+    bm_add_cylinder(bm, (x, y, z + 0.34), 0.58, 0.44, 0.12, 9, twig_mat)
+    # Stylized low-poly standing stork silhouette
+    bm_add_box(bm, (x - 0.08, y, z + 0.62), (0.04, 0.04, 0.36), beak_mat)
+    bm_add_box(bm, (x + 0.08, y, z + 0.62), (0.04, 0.04, 0.36), beak_mat)
+    bm_add_box(bm, (x, y - 0.04, z + 0.88), (0.28, 0.36, 0.24), bird_white_mat, (0.18, 0.0, 0.0))
+    bm_add_cylinder(bm, (x, y - 0.18, z + 1.16), 0.08, 0.06, 0.28, 6, bird_white_mat)
+    bm_add_cylinder(bm, (x, y - 0.36, z + 1.24), 0.05, 0.01, 0.26, 5, beak_mat, (math.pi * 0.52, 0.0, 0.0))
+

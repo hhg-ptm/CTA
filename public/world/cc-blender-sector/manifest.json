@@ -1,0 +1,345 @@
+{
+  "schemaVersion": 1,
+  "region": "cc-blender-sector",
+  "buildingPipeline": "blender-library",
+  "crs": "EPSG:25829",
+  "origin": {
+    "lat": 39.474414,
+    "lon": -6.371556,
+    "reference": "Plaza Mayor de Cáceres"
+  },
+  "extentMeters": 7600,
+  "chunkMeters": 256,
+  "sectorZones": {
+    "casco_historico": [
+      "-1_-1",
+      "0_-1",
+      "-1_0",
+      "0_0"
+    ],
+    "ensanche_bloques": [
+      "-2_-1",
+      "-1_-2",
+      "-3_-2",
+      "-2_-2",
+      "-3_-3",
+      "-2_-3"
+    ],
+    "vistahermosa_chalets": [
+      "-9_0",
+      "-8_0",
+      "-7_0",
+      "-9_-1",
+      "-8_-1",
+      "-7_-1"
+    ],
+    "comercial_equipamiento": [
+      "-9_-2",
+      "-8_-2",
+      "-7_-2",
+      "-8_-3",
+      "-7_-3"
+    ]
+  },
+  "chunks": [
+    {
+      "id": "-1_-1",
+      "path": "-1_-1.bin",
+      "bounds": {
+        "minX": -256,
+        "minZ": -256,
+        "maxX": 0,
+        "maxZ": 0
+      },
+      "bytes": 104453,
+      "sha256": "d1e468686f4b0bde9f84b4f7d99370fc1afe2aef1fe9d878e945b4fce8dd852f",
+      "featureCount": 459
+    },
+    {
+      "id": "0_-1",
+      "path": "0_-1.bin",
+      "bounds": {
+        "minX": 0,
+        "minZ": -256,
+        "maxX": 256,
+        "maxZ": 0
+      },
+      "bytes": 88048,
+      "sha256": "3641b225a23c58b8b8e7eba1e12dbdaff76ecf4425cc4c7cdb2ca0a64603255a",
+      "featureCount": 366
+    },
+    {
+      "id": "-1_0",
+      "path": "-1_0.bin",
+      "bounds": {
+        "minX": -256,
+        "minZ": 0,
+        "maxX": 0,
+        "maxZ": 256
+      },
+      "bytes": 89125,
+      "sha256": "bd69bf15f6ce4c994328772c5ba4b1bf7ac2a5d512a6b6df721e62eba54f4640",
+      "featureCount": 412
+    },
+    {
+      "id": "0_0",
+      "path": "0_0.bin",
+      "bounds": {
+        "minX": 0,
+        "minZ": 0,
+        "maxX": 256,
+        "maxZ": 256
+      },
+      "bytes": 107033,
+      "sha256": "e95aae36d983cc7a4c847ea5ffa11477e748be9cefd90313e8fa4d1960d08d5c",
+      "featureCount": 495
+    },
+    {
+      "id": "-2_-1",
+      "path": "-2_-1.bin",
+      "bounds": {
+        "minX": -512,
+        "minZ": -256,
+        "maxX": -256,
+        "maxZ": 0
+      },
+      "bytes": 66867,
+      "sha256": "dec052d54cc2282d45e81ce6612944e900b441eb5c055ed3b6910b6458c9b19d",
+      "featureCount": 308
+    },
+    {
+      "id": "-1_-2",
+      "path": "-1_-2.bin",
+      "bounds": {
+        "minX": -256,
+        "minZ": -512,
+        "maxX": 0,
+        "maxZ": -256
+      },
+      "bytes": 60795,
+      "sha256": "cb7d98635f4cdd952c54bbf51b058d00f8baea865d4e8d6ce51476ba07482307",
+      "featureCount": 251
+    },
+    {
+      "id": "1_-1",
+      "path": "1_-1.bin",
+      "bounds": {
+        "minX": 256,
+        "minZ": -256,
+        "maxX": 512,
+        "maxZ": 0
+      },
+      "bytes": 51609,
+      "sha256": "bd14138fe10dd5b69855300800cca94e22289ae4c7fc2859e174d89ee3412a23",
+      "featureCount": 242
+    },
+    {
+      "id": "1_0",
+      "path": "1_0.bin",
+      "bounds": {
+        "minX": 256,
+        "minZ": 0,
+        "maxX": 512,
+        "maxZ": 256
+      },
+      "bytes": 62914,
+      "sha256": "1dff1e348639760b5e12907ccdb5c42ae8a03c68d5c8786fb4fe55d6e35141c6",
+      "featureCount": 284
+    },
+    {
+      "id": "-3_-3",
+      "path": "-3_-3.bin",
+      "bounds": {
+        "minX": -768,
+        "minZ": -768,
+        "maxX": -512,
+        "maxZ": -512
+      },
+      "bytes": 53162,
+      "sha256": "a99a06cbb3c8912354faff65ee498f49a72060545efc1c52aa37d29c1ea875d6",
+      "featureCount": 273
+    },
+    {
+      "id": "-2_-3",
+      "path": "-2_-3.bin",
+      "bounds": {
+        "minX": -512,
+        "minZ": -768,
+        "maxX": -256,
+        "maxZ": -512
+      },
+      "bytes": 53299,
+      "sha256": "51a4b05b6b4feb0b7b525d78b0025477856f7bc5eac449bffdfd029433a452d8",
+      "featureCount": 208
+    },
+    {
+      "id": "-3_-2",
+      "path": "-3_-2.bin",
+      "bounds": {
+        "minX": -768,
+        "minZ": -512,
+        "maxX": -512,
+        "maxZ": -256
+      },
+      "bytes": 55471,
+      "sha256": "5ee669333bed971ae2e0c97296bee21cccdafd678447d77af359c7f73383146f",
+      "featureCount": 227
+    },
+    {
+      "id": "-2_-2",
+      "path": "-2_-2.bin",
+      "bounds": {
+        "minX": -512,
+        "minZ": -512,
+        "maxX": -256,
+        "maxZ": -256
+      },
+      "bytes": 54927,
+      "sha256": "18e61c9ca110488cfd873747507b8104d8be93dccfb3103bc58ae021b5db3b81",
+      "featureCount": 264
+    },
+    {
+      "id": "-9_0",
+      "path": "-9_0.bin",
+      "bounds": {
+        "minX": -2304,
+        "minZ": 0,
+        "maxX": -2048,
+        "maxZ": 256
+      },
+      "bytes": 36268,
+      "sha256": "0760b72211a4df49c6b9ecca175051b2ba0fe9ff6d98ee02e766aa0992bb5634",
+      "featureCount": 192
+    },
+    {
+      "id": "-8_0",
+      "path": "-8_0.bin",
+      "bounds": {
+        "minX": -2048,
+        "minZ": 0,
+        "maxX": -1792,
+        "maxZ": 256
+      },
+      "bytes": 35756,
+      "sha256": "a89b0cc03cabd424de2360fc98b21d05329887d5bfd816c17ad842facf9e8049",
+      "featureCount": 170
+    },
+    {
+      "id": "-7_0",
+      "path": "-7_0.bin",
+      "bounds": {
+        "minX": -1792,
+        "minZ": 0,
+        "maxX": -1536,
+        "maxZ": 256
+      },
+      "bytes": 40612,
+      "sha256": "8cc5fceb264f16929d01298756422c17f7c8e0dbe55d717f114d5534ea6d7af1",
+      "featureCount": 203
+    },
+    {
+      "id": "-9_-1",
+      "path": "-9_-1.bin",
+      "bounds": {
+        "minX": -2304,
+        "minZ": -256,
+        "maxX": -2048,
+        "maxZ": 0
+      },
+      "bytes": 32147,
+      "sha256": "efc58978052c91105e84bb3a0a294e62bca8d951c2230eae8919c2c3112f7fa8",
+      "featureCount": 119
+    },
+    {
+      "id": "-8_-1",
+      "path": "-8_-1.bin",
+      "bounds": {
+        "minX": -2048,
+        "minZ": -256,
+        "maxX": -1792,
+        "maxZ": 0
+      },
+      "bytes": 40415,
+      "sha256": "3570fc5491e56f87b6fc5ac2751d4d2c66fa9f76716217062f8be81236214326",
+      "featureCount": 210
+    },
+    {
+      "id": "-7_-1",
+      "path": "-7_-1.bin",
+      "bounds": {
+        "minX": -1792,
+        "minZ": -256,
+        "maxX": -1536,
+        "maxZ": 0
+      },
+      "bytes": 44853,
+      "sha256": "93f6b3896faf9a339e7a6a118015c6b09fdb1720bfd8a41694ce6b702dbb89ca",
+      "featureCount": 242
+    },
+    {
+      "id": "-9_-2",
+      "path": "-9_-2.bin",
+      "bounds": {
+        "minX": -2304,
+        "minZ": -512,
+        "maxX": -2048,
+        "maxZ": -256
+      },
+      "bytes": 27620,
+      "sha256": "4719f5ddc41af04b7640272d3958897d438047ed1c6d0f0d69be36083b4ea9b3",
+      "featureCount": 131
+    },
+    {
+      "id": "-8_-2",
+      "path": "-8_-2.bin",
+      "bounds": {
+        "minX": -2048,
+        "minZ": -512,
+        "maxX": -1792,
+        "maxZ": -256
+      },
+      "bytes": 36171,
+      "sha256": "07da1a9d773c9a97df57a3c5ecbf542cee1fd5d04e91cd691013ee77dc33c0c5",
+      "featureCount": 197
+    },
+    {
+      "id": "-7_-2",
+      "path": "-7_-2.bin",
+      "bounds": {
+        "minX": -1792,
+        "minZ": -512,
+        "maxX": -1536,
+        "maxZ": -256
+      },
+      "bytes": 43024,
+      "sha256": "0e7f1677fae179bf2adee2bd128a0e0c365062a378aa38daeba3e36fcbbf38b5",
+      "featureCount": 260
+    },
+    {
+      "id": "-8_-3",
+      "path": "-8_-3.bin",
+      "bounds": {
+        "minX": -2048,
+        "minZ": -768,
+        "maxX": -1792,
+        "maxZ": -512
+      },
+      "bytes": 32427,
+      "sha256": "dfcbda267e86b5259815e0df8434d6fd4bb17bfb1d4e1455fcda333e85154d14",
+      "featureCount": 173
+    },
+    {
+      "id": "-7_-3",
+      "path": "-7_-3.bin",
+      "bounds": {
+        "minX": -1792,
+        "minZ": -768,
+        "maxX": -1536,
+        "maxZ": -512
+      },
+      "bytes": 36205,
+      "sha256": "b074adcd282e5e3f6112efcbbefc5c55a75e016da52bd151f2463bef2fef0b7a",
+      "featureCount": 186
+    }
+  ]
+}

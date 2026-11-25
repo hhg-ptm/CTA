@@ -153,7 +153,7 @@ const cameraRig = new CameraRig(camera, input, 5.2, 0.002, 2.07, -0.12);
 cameraRig.mode = 'thirdPerson';
 const logger = new Logger('world', 'info');
 const character = new Character();
-scene.add(new THREE.HemisphereLight('#9ec6e8', '#5a4836', 2.0));
+scene.add(new THREE.HemisphereLight('#b2d4f2', '#827462', 2.2));
 scene.add(character.group);
 
 // Dramatic warm afternoon sun angle creating authentic long shadows
@@ -803,7 +803,13 @@ window.addEventListener('pagehide', () => {
   renderer.dispose();
 });
 
-const requestedWorld = query.get('world') === 'cc-prototype' ? 'cc-prototype' : 'cc-monumental';
+const worldParam = query.get('world');
+const requestedWorld =
+  worldParam === 'cc-prototype' || worldParam === 'cc-blender-sector'
+    ? worldParam
+    : 'cc-monumental';
+const buildingPipelineParam =
+  query.get('buildings') === 'blender' ? 'blender-library' : undefined;
 const rawBudget = query.get('budget');
 const requestedBudget =
   rawBudget === '600k' || rawBudget === '1200k' || rawBudget === '2000k' ? rawBudget : '1200k';
@@ -813,7 +819,15 @@ async function initializeWorld(): Promise<void> {
   agentColliders = new AgentColliders(world);
   const worldBaseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
   const manifestUrl = new URL(`world/${requestedWorld}/manifest.json`, worldBaseUrl);
-  chunks = new ChunkManager(scene, world, manifestUrl, worldBaseUrl, cityKitEnabled, requestedBudget);
+  chunks = new ChunkManager(
+    scene,
+    world,
+    manifestUrl,
+    worldBaseUrl,
+    cityKitEnabled,
+    requestedBudget,
+    buildingPipelineParam,
+  );
   cameraRig.occlusion = (origin, dir, maxDist) =>
     chunks?.cameraOcclusion(origin, dir, maxDist) ?? maxDist;
   chunks.events.on('chunkLoaded', ({ id, lod }) =>

@@ -14,9 +14,34 @@ export interface ChunkEntry {
   readonly featureCount: number;
 }
 
+export type BuildingPipelineMode = 'procedural' | 'blender-library';
+
+export type BlenderModelKey =
+  | '01_casco_house'
+  | '02_modern_residential'
+  | '03_chalet'
+  | '04_commercial'
+  | '05_extremadura_traditional'
+  | '06_casco_palace'
+  | '07_midrise_residential'
+  | '08_civic_equipment';
+
+export interface BlenderBuildingPlacement {
+  readonly buildingId: string;
+  readonly modelKey: BlenderModelKey;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly heading: number;
+  readonly scaleX: number;
+  readonly scaleY: number;
+  readonly scaleZ: number;
+}
+
 export interface WorldManifest {
   readonly schemaVersion: number;
   readonly region: string;
+  readonly buildingPipeline?: BuildingPipelineMode;
   readonly extentMeters: number;
   readonly chunkMeters: number;
   readonly roadNetwork?: {
@@ -210,6 +235,7 @@ export interface BuiltBuildingChunk {
   readonly roofAnchors: readonly BuildingRoofAnchor[];
   readonly detailBatches?: readonly BuildingDetailBatch[];
   readonly landmarkModels: readonly LandmarkModelInstance[];
+  readonly blenderPlacements?: readonly BlenderBuildingPlacement[];
   readonly storks: readonly StorkInstance[];
   readonly footprints: readonly (readonly (readonly [number, number])[])[];
 }

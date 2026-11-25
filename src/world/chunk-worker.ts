@@ -1,12 +1,18 @@
 import { buildTerrainChunk } from './mesh-builder';
 import { buildRoadChunk } from './road-builder';
 import { buildBuildingChunk } from './building-builder';
-import type { BuiltTerrainChunk, DetailBudgetProfile, RawTerrainChunk } from './types';
+import type {
+  BuildingPipelineMode,
+  BuiltTerrainChunk,
+  DetailBudgetProfile,
+  RawTerrainChunk,
+} from './types';
 
 interface BuildRequest {
   readonly id: string;
   readonly buffer: ArrayBuffer;
   readonly detailBudget?: DetailBudgetProfile;
+  readonly buildingPipeline?: BuildingPipelineMode;
 }
 
 interface BuildResponse {
@@ -42,7 +48,13 @@ async function decodeChunk(request: BuildRequest): Promise<BuiltTerrainChunk> {
   return {
     ...terrain,
     roads: buildRoadChunk(raw.features, terrain, raw.bounds),
-    buildings: buildBuildingChunk(raw.features, terrain, raw.bounds, request.detailBudget ?? '1200k'),
+    buildings: buildBuildingChunk(
+      raw.features,
+      terrain,
+      raw.bounds,
+      request.detailBudget ?? '1200k',
+      request.buildingPipeline ?? 'procedural',
+    ),
   };
 }
 

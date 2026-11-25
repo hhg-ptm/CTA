@@ -33,8 +33,10 @@ import {
   type VolumeItem,
 } from './building-volumes';
 import { addLandmarkGeometry, isTowerLandmark } from './landmark-geometry';
+import { buildBlenderGeoPlacements } from './blender-geo-adapter';
 import { clipToBounds, sampleHeight, type RoadPoint, type RoadPoint3 } from './road-geometry';
 import type {
+  BuildingPipelineMode,
   BuiltBuildingChunk,
   BuiltTerrainChunk,
   BuildingLodGeometry,
@@ -715,6 +717,7 @@ function buildLod(
   bounds: ProjectedBounds,
   lod: number,
   budget: DetailBudgetConfig,
+  handledBlenderIds: ReadonlySet<string>,
 ): BuildingLodGeometry {
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerZ = (bounds.minZ + bounds.maxZ) / 2;
@@ -726,6 +729,7 @@ function buildLod(
   for (let i = 0; i < list.length; i += 1) {
     const item = list[i];
     if (!item) continue;
+    if (handledBlenderIds.has(item.feature.id ?? '')) continue;
     if (
       item.feature.landmarkModelPath &&
       /^landmarks\/w\d+\.glb$/.test(item.feature.landmarkModelPath)
@@ -855,6 +859,7 @@ export function buildBuildingChunk(
   terrain: BuiltTerrainChunk,
   bounds: ProjectedBounds,
   detailBudget: DetailBudgetProfile = '1200k',
+  buildingPipeline: BuildingPipelineMode = 'procedural',
 ): BuiltBuildingChunk {
   const budget = DETAIL_BUDGET_CONFIGS[detailBudget];
   const baseAnalyzed: VolumeItem[] = [];
@@ -864,6 +869,12 @@ export function buildBuildingChunk(
     const item = buildFootprint(feature, clipToBounds(feature.points, bounds), feature.points);
     if (item) baseAnalyzed.push(item);
   }
+
+  const blenderGeo =
+    buildingPipeline === 'blender-library'
+      ? buildBlenderGeoPlacements(features, terrain, bounds)
+      : undefined;
+  const handledBlenderIds = blenderGeo?.handledBuildingIds ?? new Set<string>();
 
   const roads = features.filter(
     (feature) => feature.featureType === 'road' || feature.featureType === 'pedestrian',
@@ -906,12 +917,15 @@ export function buildBuildingChunk(
       bounds,
       lod,
       budget,
+      handledBlenderIds,
     ),
   );
-  const detailVolumes = allLod0Volumes.map((vol, i) => ({
-    ...vol,
-    detailKey: `${vol.feature.id ?? ''}#${i}`,
-  }));
+  const detailVolumes = allLod0Volumes
+    .filter((vol) => !handledBlenderIds.has(vol.feature.id ?? ''))
+    .map((vol, i) => ({
+      ...vol,
+      detailKey: `${vol.feature.id ?? ''}#${i}`,
+    }));
   const extras = buildExtras(
     baseAnalyzed,
     detailVolumes,
@@ -945,6 +959,7 @@ export function buildBuildingChunk(
     roofAnchors: extras.anchors,
     detailBatches: extras.detailBatches,
     landmarkModels: extras.models,
+    blenderPlacements: blenderGeo?.placements,
     storks: extras.storks,
     footprints,
   };

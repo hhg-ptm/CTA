@@ -11,6 +11,7 @@ from arch_helpers import (
     add_curved_striped_awning,
     add_potted_shrub,
     add_solid_wall_panel,
+    add_subplinth_foundation,
     add_wall_panel_with_recessed_window,
     bm_add_box,
     bm_add_cylinder,
@@ -83,7 +84,8 @@ def build_hero_commercial(
     z2 = z1 + u1_h
     z3 = z2 + u2_h
 
-    # Dark ground plinth + base curb trim
+    # Dark ground plinth + hill-safe subplinth
+    add_subplinth_foundation(bm, (0.0, 0.0), w + 0.16, d + 0.16, mats["dark"])
     bm_add_box(bm, (0.0, 0.0, plinth_h * 0.5), (w + 0.16, d + 0.16, plinth_h), mats["dark"])
 
     p_fl, p_fr = Vector((-hx, -hy)), Vector((hx, -hy))

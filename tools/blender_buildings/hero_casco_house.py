@@ -12,6 +12,7 @@ from arch_helpers import (
     add_pitched_roof_with_ribs,
     add_potted_shrub,
     add_solid_wall_panel,
+    add_subplinth_foundation,
     add_wall_panel_with_recessed_window,
     bm_add_box,
     bm_add_cylinder,
@@ -176,6 +177,7 @@ def build_hero_casco_house(
     collection_name: str = "Hero_Casco_House",
     location: tuple[float, float, float] = (0.0, 0.0, 0.0),
     lod: int = 0,
+    include_side_wall: bool = True,
 ) -> bpy.types.Object:
     """Model Hero 1: Historic Cáceres manor house with granite plinth, quoins,
     arched portal, wrought-iron rejas, cantilevered balconies, stepped torreón + mirador bay,
@@ -217,7 +219,8 @@ def build_hero_casco_house(
     z1 = plinth_h + g_h
     z2 = z1 + u_h
 
-    # 1. Stepped carved granite plinth ("zócalo") around full perimeter
+    # 1. Hill-safe sub-plinth skirt + stepped carved granite plinth ("zócalo") around full perimeter
+    add_subplinth_foundation(bm, (0.0, 0.0), w + 0.16, d + 0.16, mats["plinth"])
     bm_add_box(bm, (0.0, 0.0, plinth_h * 0.5), (w + 0.16, d + 0.16, plinth_h), mats["plinth"])
 
     # 2. Ground Floor + Planta Noble main facades
@@ -330,11 +333,12 @@ def build_hero_casco_house(
     for dx in (-0.22, 0.22):
         bm_add_cylinder(bm, (ch_x + dx, ch_y, z2 + 2.86), 0.12, 0.10, 0.36, 8, mats["roof_ridge"])
 
-    # Side garden stone wall ("tapia cacereña") framing the left courtyard gate edge
-    gw_x = -hx - 1.5
-    bm_add_box(bm, (gw_x, 0.6, 1.25), (3.0, 0.42, 2.5), mats["wall_stone"])
-    bm_add_box(bm, (gw_x, 0.6, 2.56), (3.12, 0.52, 0.14), mats["roof_terracotta"])
-    bm_add_box(bm, (-hx - 2.95, 0.6, 1.40), (0.58, 0.58, 2.8), mats["plinth"])
+    # Side garden stone wall ("tapia cacereña") only when placed as standalone street-end lot
+    if include_side_wall:
+        gw_x = -hx - 1.5
+        bm_add_box(bm, (gw_x, 0.6, 1.25), (3.0, 0.42, 2.5), mats["wall_stone"])
+        bm_add_box(bm, (gw_x, 0.6, 2.56), (3.12, 0.52, 0.14), mats["roof_terracotta"])
+        bm_add_box(bm, (-hx - 2.95, 0.6, 1.40), (0.58, 0.58, 2.8), mats["plinth"])
     add_potted_shrub(bm, (-hx + 0.75, -hy - 0.55, 0.0), mats["plinth"], mats["foliage"], scale=0.85)
 
     return create_mesh_object(

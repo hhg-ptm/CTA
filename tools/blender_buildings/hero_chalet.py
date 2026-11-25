@@ -13,6 +13,7 @@ from arch_helpers import (
     add_potted_shrub,
     add_solid_wall_panel,
     add_stylized_tree,
+    add_subplinth_foundation,
     add_wall_panel_with_recessed_window,
     bm_add_box,
     bm_add_cylinder,
@@ -83,7 +84,8 @@ def build_hero_chalet(
     z1 = plinth_h + 2.95
     z2 = z1 + 2.75
 
-    # River-stone foundation plinth
+    # River-stone foundation plinth + hill-safe subplinth skirt
+    add_subplinth_foundation(bm, (cx, cy), w + 0.16, d + 0.16, mats["stone"])
     bm_add_box(bm, (cx, cy, plinth_h * 0.5), (w + 0.16, d + 0.16, plinth_h), mats["stone"])
 
     # Main House Ground Floor (plinth_h .. z1)

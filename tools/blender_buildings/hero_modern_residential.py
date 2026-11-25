@@ -11,6 +11,7 @@ from arch_helpers import (
     add_cantilevered_balcony,
     add_potted_shrub,
     add_solid_wall_panel,
+    add_subplinth_foundation,
     add_wall_panel_with_recessed_window,
     bm_add_box,
     bm_add_cylinder,
@@ -77,7 +78,9 @@ def build_hero_modern_residential(
     cx_b, cy_b = cx_a + hx_a + w_b * 0.5 - 0.2, 0.4
     hx_b, hy_b = w_b * 0.5, d_b * 0.5
 
-    # Ground dark concrete podium base across full width
+    # Ground dark concrete podium base across full width + hill-safe subplinth
+    add_subplinth_foundation(bm, (cx_a, cy_a), w_a + 0.16, d_a + 0.16, mats["dark"])
+    add_subplinth_foundation(bm, (cx_b, cy_b), w_b + 0.16, d_b + 0.16, mats["dark"])
     bm_add_box(bm, (cx_a, cy_a, 0.25), (w_a + 0.16, d_a + 0.16, 0.50), mats["dark"])
     bm_add_box(bm, (cx_b, cy_b, 0.25), (w_b + 0.16, d_b + 0.16, 0.50), mats["dark"])
 
