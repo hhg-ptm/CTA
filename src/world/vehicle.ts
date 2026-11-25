@@ -14,6 +14,7 @@ export class Vehicle {
   readonly controller: RAPIER.DynamicRayCastVehicleController;
   readonly color: number;
   private readonly wheels: THREE.Object3D[] = [];
+  private readonly wheelHardpoints: THREE.Vector3[] = [];
   private readonly brakeLightMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly proceduralParts: THREE.Object3D[] = [];
   private readonly world: World;
@@ -55,6 +56,7 @@ export class Vehicle {
       { x: 0.75, z: -1.3 },
     ];
     for (const wp of wheelPositions) {
+      this.wheelHardpoints.push(new THREE.Vector3(wp.x, -0.2, wp.z));
       this.controller.addWheel(
         new RAPIER.Vector3(wp.x, -0.2, wp.z),
         new RAPIER.Vector3(0, -1, 0),
@@ -257,6 +259,8 @@ export class Vehicle {
     this.proceduralParts.push(...this.group.children);
     for (const wp of wheelPositions) {
       const pivot = new THREE.Group();
+      // Steer about the parent's up axis first, then roll about the wheel axle.
+      pivot.rotation.order = 'YXZ';
       pivot.position.set(wp.x, 0.0, wp.z);
       const tyre = new THREE.Mesh(wheelGeo, wheelMat);
       tyre.castShadow = true;
@@ -284,7 +288,8 @@ export class Vehicle {
     this.controller.setWheelSteering(0, steeringAngle);
     this.controller.setWheelSteering(1, steeringAngle);
 
-    const engine = input.forward ? 4000 : input.backward ? -2000 : 0;
+    // Rapier's positive engine force pushes along -Z, while the GT's nose is +Z.
+    const engine = input.forward ? -4000 : input.backward ? 2000 : 0;
     this.controller.setWheelEngineForce(2, engine);
     this.controller.setWheelEngineForce(3, engine);
 
@@ -323,28 +328,32 @@ export class Vehicle {
     this.group.position.set(t.x, t.y, t.z);
     this.group.quaternion.set(r.x, r.y, r.z, r.w);
 
-    // Wheel visuals.
+    // Keep wheel visuals in chassis-local space: wheelHardPoint() is world-space
+    // and subtracting only the translation breaks as soon as the chassis yaws.
     for (let i = 0; i < 4; i += 1) {
       const w = this.wheels[i];
-      if (!w) continue;
+      const hardpoint = this.wheelHardpoints[i];
+      if (!w || !hardpoint) continue;
       const rot = this.controller.wheelRotation(i);
       if (rot !== null) w.rotation.x = rot;
       const steerAng = this.controller.wheelSteering(i);
       if (steerAng !== null && i < 2) w.rotation.y = steerAng;
-      const hp = this.controller.wheelHardPoint(i);
-      const suspLen = this.controller.wheelSuspensionLength(i);
-      if (hp && suspLen !== null) {
-        w.position.set(
-          hp.x - this.group.position.x,
-          hp.y - this.group.position.y + suspLen * 0.5,
-          hp.z - this.group.position.z,
-        );
-      }
+      w.position.set(
+        hardpoint.x,
+        hardpoint.y - (this.controller.wheelSuspensionLength(i) ?? 0.3),
+        hardpoint.z,
+      );
     }
   }
 
   get position(): THREE.Vector3 {
     return this.group.position;
+  }
+
+  /** Chassis yaw in radians, read from the physics body. */
+  get heading(): number {
+    const rotation = this.chassisBody.rotation();
+    return 2 * Math.atan2(rotation.y, rotation.w);
   }
 
   /** Move the chassis once terrain height becomes available after streaming. */

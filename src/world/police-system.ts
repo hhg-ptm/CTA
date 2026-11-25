@@ -1,9 +1,15 @@
 import * as THREE from 'three';
 import type { Camera } from 'three';
+import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import type { AgentColliderSink } from './agent-colliders';
 import type { RoadGraph } from './road-graph';
 import type { NpcWorld } from './npc-system';
-import { createPoliceMesh, disposeAgentMesh } from './npc-models';
+import {
+  createDetailedVehicleGeometry,
+  createPoliceMesh,
+  disposeAgentMesh,
+  replaceInstancedModel,
+} from './npc-models';
 
 const CAPACITY = 5;
 const MAX_ROUTE = 64;
@@ -53,6 +59,11 @@ export class PoliceSystem {
     this.intersectionOwner = new Int32Array(graph.nodeCount);
     this.claimTime = new Float32Array(graph.nodeCount);
     for (let slot = 0; slot < CAPACITY; slot += 1) this.free.push(slot);
+  }
+
+  /** Replace the built-in patrol cars with the instanced Caceres GT police LOD. */
+  setVehicleModel(gltf: GLTF): void {
+    replaceInstancedModel(this.mesh, createDetailedVehicleGeometry(gltf));
   }
 
   get count(): number {

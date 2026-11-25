@@ -55,6 +55,13 @@ export class CameraRig {
     return this.yaw;
   }
 
+  /** Point the orbit camera behind a heading and snap the follow next frame. */
+  setYaw(yaw: number): void {
+    this.yaw = MathUtils.euclideanModulo(yaw + Math.PI, Math.PI * 2) - Math.PI;
+    this.smoothInitialized = false;
+    this.syncRotation();
+  }
+
   /** Widens the field of view proportionally to driving speed. */
   setSpeedFov(speed: number): void {
     this.targetFov = this.baseFov + Math.min(speed * 0.35, 12);
