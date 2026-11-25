@@ -55,11 +55,12 @@ describe('System A: 8-Building Blender Artistic Library & 2-Material UV Atlas', 
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
       readonly schemaVersion: number;
       readonly models: readonly BuildingLibraryEntry[];
+      readonly variants?: readonly BuildingLibraryEntry[];
     };
     expect(manifest.schemaVersion).toBe(2);
     expect(manifest.models.map((m) => m.key)).toEqual([...ALL_8_KEYS]);
 
-    for (const model of manifest.models) {
+    for (const model of [...manifest.models, ...(manifest.variants ?? [])]) {
       expect(model.lod0Tris).toBeGreaterThan(model.lod1Tris);
       expect(model.lod1Tris).toBeGreaterThan(model.lod2Tris * 3);
       expect(model.lod2Tris).toBeLessThanOrEqual(400);

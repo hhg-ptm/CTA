@@ -19,11 +19,15 @@ export type BuildingPipelineMode = 'procedural' | 'blender-library';
 export type BlenderModelKey =
   | '01_casco_house'
   | '02_modern_residential'
+  | '02b_modern_setback'
   | '03_chalet'
   | '04_commercial'
   | '05_extremadura_traditional'
+  | '05b_lowrise_village'
   | '06_casco_palace'
   | '07_midrise_residential'
+  | '07b_midrise_gabled'
+  | '07c_midrise_attic'
   | '08_civic_equipment';
 
 export interface WorldManifest {

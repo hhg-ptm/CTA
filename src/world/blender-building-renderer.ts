@@ -29,6 +29,7 @@ interface ManifestModelEntry {
 
 interface ManifestPayload {
   readonly models: readonly ManifestModelEntry[];
+  readonly variants?: readonly ManifestModelEntry[];
 }
 
 interface ModelPart {
@@ -91,7 +92,8 @@ export class BlenderBuildingRenderer {
     const lod2Parts = new Map<BlenderModelKey, ModelPart[]>();
     const tasks: Promise<void>[] = [];
 
-    for (const entry of manifest.models) {
+    const allEntries = [...manifest.models, ...(manifest.variants ?? [])];
+    for (const entry of allEntries) {
       const cx = entry.centerOffsetX ?? 0;
       const cz = entry.centerOffsetZ ?? 0;
       tasks.push(
@@ -109,7 +111,7 @@ export class BlenderBuildingRenderer {
 
     await Promise.all(tasks);
     this.models.clear();
-    for (const entry of manifest.models) {
+    for (const entry of allEntries) {
       this.models.set(entry.key, {
         lod0: lod0Parts.get(entry.key) ?? [],
         lod1: lod1Parts.get(entry.key) ?? [],

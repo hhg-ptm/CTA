@@ -44,6 +44,13 @@ export const BLENDER_MODEL_SPECS: Readonly<Record<BlenderModelKey, BlenderNomina
     nominalHeightMeters: 24.5,
     floors: 6,
   },
+  '02b_modern_setback': {
+    key: '02b_modern_setback',
+    nominalWidthMeters: 14.36,
+    nominalDepthMeters: 12.48,
+    nominalHeightMeters: 22.21,
+    floors: 6,
+  },
   '03_chalet': {
     key: '03_chalet',
     nominalWidthMeters: 16.0,
@@ -65,6 +72,13 @@ export const BLENDER_MODEL_SPECS: Readonly<Record<BlenderModelKey, BlenderNomina
     nominalHeightMeters: 9.13,
     floors: 2,
   },
+  '05b_lowrise_village': {
+    key: '05b_lowrise_village',
+    nominalWidthMeters: 11.56,
+    nominalDepthMeters: 9.595,
+    nominalHeightMeters: 7.77,
+    floors: 2,
+  },
   '06_casco_palace': {
     key: '06_casco_palace',
     nominalWidthMeters: 16.3,
@@ -79,6 +93,20 @@ export const BLENDER_MODEL_SPECS: Readonly<Record<BlenderModelKey, BlenderNomina
     nominalHeightMeters: 17.46,
     floors: 4,
   },
+  '07b_midrise_gabled': {
+    key: '07b_midrise_gabled',
+    nominalWidthMeters: 14.68,
+    nominalDepthMeters: 11.576,
+    nominalHeightMeters: 12.58,
+    floors: 3,
+  },
+  '07c_midrise_attic': {
+    key: '07c_midrise_attic',
+    nominalWidthMeters: 14.5,
+    nominalDepthMeters: 12.13,
+    nominalHeightMeters: 16.555,
+    floors: 4,
+  },
   '08_civic_equipment': {
     key: '08_civic_equipment',
     nominalWidthMeters: 16.34,
@@ -88,10 +116,12 @@ export const BLENDER_MODEL_SPECS: Readonly<Record<BlenderModelKey, BlenderNomina
   },
 };
 
-const MIN_AXIS_SCALE = 0.72;
-const MAX_AXIS_SCALE = 1.26;
-const MAX_PLANAR_ASPECT = 1.24;
-const MAX_HEIGHT_STRETCH = 1.26;
+const MIN_XZ_SCALE = 0.44;
+const MAX_XZ_SCALE = 1.24;
+const MAX_PLANAR_ASPECT = 1.28;
+const MIN_HEIGHT_SCALE = 0.46;
+const MAX_HEIGHT_SCALE = 1.42;
+const MAX_HEIGHT_STRETCH = 1.42;
 
 const CIVIC_USE_TAGS = new Set([
   '4_3_publicServices',
@@ -152,17 +182,17 @@ const INDUSTRIAL_BUILDING_TYPES = new Set([
 ]);
 
 const DISTRICT_TINT_PALETTES: Readonly<Record<DistrictKind, readonly number[]>> = {
-  casco: [0xffffff, 0xf7efe2, 0xf1e7d5, 0xfaf5ec],
-  canovas_centro: [0xffffff, 0xf6efe6, 0xeee8e0, 0xfbf7f0],
-  residencial: [0xffffff, 0xf4f2ee, 0xebeef2, 0xf9f1e8],
-  nuevo_caceres: [0xffffff, 0xf1f4f7, 0xf8f3eb, 0xeaeef3],
-  mejostilla: [0xffffff, 0xfbf5ec, 0xf0f4f1, 0xf4ede3],
-  chalets: [0xffffff, 0xfef5eb, 0xf1f6f2, 0xf8eee4],
-  comercial: [0xffffff, 0xf6f4f0, 0xedf2f6, 0xfbf5ec],
-  industrial: [0xcad3dc, 0xd8dce0, 0xbec7d0, 0xd4cfc6],
-  aldea_moret: [0xf5ede2, 0xebe3d7, 0xe2dbd0, 0xfaf4eb],
-  campus: [0xfaf6ee, 0xf0f4f7, 0xf3ede1, 0xffffff],
-  periferia: [0xffffff, 0xf6efe5, 0xedf1eb, 0xf9f4ec],
+  casco: [0xffffff, 0xf7ebd6, 0xf2dfc2, 0xfbf4e6, 0xece3d3],
+  canovas_centro: [0xffffff, 0xf6dfc2, 0xe8eff5, 0xf5d6cc, 0xeee8de],
+  residencial: [0xffffff, 0xf6e3c6, 0xdce6f0, 0xf2d4c8, 0xe5efe4],
+  nuevo_caceres: [0xffffff, 0xdce5ef, 0xf6e6ce, 0xe4ede8, 0xf3d7cc],
+  mejostilla: [0xffffff, 0xf8e5c9, 0xe2ede5, 0xdce6ef, 0xf3d9ce],
+  chalets: [0xffffff, 0xfbe5cc, 0xe6f0e8, 0xf3d7ca, 0xf9f0d8],
+  comercial: [0xffffff, 0xf5e8d4, 0xdde7ef, 0xf7eed6, 0xe9eef2],
+  industrial: [0xc6d0db, 0xd8dce0, 0xb8c3ce, 0xd2cbc0, 0xc3cbd0],
+  aldea_moret: [0xfaf1e2, 0xf3dec0, 0xe5ddd0, 0xf1d6c6, 0xe8efe4],
+  campus: [0xfbf7ee, 0xe3ecf4, 0xf5e5cb, 0xe7efe9, 0xffffff],
+  periferia: [0xffffff, 0xf6e4cb, 0xe3eee5, 0xdde6ef, 0xf4dacd],
 };
 
 export function resolveDistrict(feature: ChunkFeature, cx: number, cz: number): DistrictKind {
@@ -299,7 +329,6 @@ export function selectBlenderArchetype(
   const hash = stableBuildingHash(feature.id ?? `${area.toFixed(1)}_${floors}`);
 
   if (isIndustrialBuilding(feature, district)) {
-    if (area >= 480) return '08_civic_equipment';
     if (btype === 'farm_auxiliary' || use === '2_agriculture' || (area <= 150 && hash % 4 === 0)) {
       return '05_extremadura_traditional';
     }
@@ -383,6 +412,53 @@ export function selectBlenderArchetype(
   return '07_midrise_residential';
 }
 
+function resolveArchitecturalVariant(
+  baseKey: BlenderModelKey,
+  seed: number,
+  floors: number,
+  heightMeters: number,
+  district: DistrictKind,
+  industrial: boolean,
+): BlenderModelKey {
+  if (industrial) {
+    return !floors || heightMeters <= 5.8
+      ? baseKey === '05_extremadura_traditional'
+        ? '05b_lowrise_village'
+        : baseKey
+      : baseKey;
+  }
+  if (baseKey === '08_civic_equipment' && (floors <= 1 || heightMeters <= 5.5)) {
+    return '05b_lowrise_village';
+  }
+  if (
+    (baseKey === '05_extremadura_traditional' || baseKey === '01_casco_house') &&
+    district !== 'casco' &&
+    (floors <= 1 || heightMeters <= 6.8)
+  ) {
+    return '05b_lowrise_village';
+  }
+  if (
+    baseKey === '05_extremadura_traditional' &&
+    Math.abs(seed) % 2 === 1 &&
+    district !== 'casco'
+  ) {
+    return '05b_lowrise_village';
+  }
+  if (baseKey === '07_midrise_residential') {
+    if (floors <= 3 || heightMeters < 12.2) {
+      return Math.abs(seed) % 5 === 0 ? '04_commercial' : '07b_midrise_gabled';
+    }
+    const bucket = Math.abs(seed) % 3;
+    if (bucket === 1) return '07c_midrise_attic';
+    if (bucket === 2) return '07b_midrise_gabled';
+    return '07_midrise_residential';
+  }
+  if (baseKey === '02_modern_residential') {
+    return Math.abs(seed) % 2 === 1 ? '02b_modern_setback' : '02_modern_residential';
+  }
+  return baseKey;
+}
+
 function chooseSiblingVariant(
   baseKey: BlenderModelKey,
   slotHash: number,
@@ -390,23 +466,48 @@ function chooseSiblingVariant(
   industrial: boolean,
 ): BlenderModelKey {
   if (industrial) {
-    return slotHash % 4 === 0 && baseKey === '04_commercial' ? '08_civic_equipment' : baseKey;
-  }
-  if (district === 'campus') {
-    if (baseKey === '08_civic_equipment' && slotHash % 3 === 0) return '07_midrise_residential';
     return baseKey;
   }
-  if (baseKey === '01_casco_house' || baseKey === '05_extremadura_traditional') {
-    return slotHash % 3 === 0 ? '05_extremadura_traditional' : '01_casco_house';
+  if (baseKey === '08_civic_equipment') {
+    if (district === 'casco' || district === 'canovas_centro') return '06_casco_palace';
+    if (district === 'campus') {
+      return slotHash % 2 === 0 ? '07c_midrise_attic' : '07b_midrise_gabled';
+    }
+    return slotHash % 2 === 0 ? '07b_midrise_gabled' : '04_commercial';
   }
-  if (baseKey === '07_midrise_residential' && slotHash % 4 === 0) {
-    return '04_commercial';
+  if (
+    baseKey === '01_casco_house' ||
+    baseKey === '05_extremadura_traditional' ||
+    baseKey === '05b_lowrise_village'
+  ) {
+    const bucket = Math.abs(slotHash) % 3;
+    if (district === 'casco') return bucket === 0 ? '05_extremadura_traditional' : '01_casco_house';
+    return bucket === 0
+      ? '05_extremadura_traditional'
+      : bucket === 1
+        ? '05b_lowrise_village'
+        : '01_casco_house';
   }
-  if (baseKey === '04_commercial' && slotHash % 3 === 0) {
-    return '07_midrise_residential';
+  if (
+    baseKey === '07_midrise_residential' ||
+    baseKey === '07b_midrise_gabled' ||
+    baseKey === '07c_midrise_attic'
+  ) {
+    const cycle: readonly BlenderModelKey[] = [
+      '07_midrise_residential',
+      '07b_midrise_gabled',
+      '07c_midrise_attic',
+      '04_commercial',
+    ];
+    return cycle[Math.abs(slotHash) % cycle.length] ?? baseKey;
   }
-  if (baseKey === '02_modern_residential' && slotHash % 5 === 0) {
-    return '07_midrise_residential';
+  if (baseKey === '04_commercial' && Math.abs(slotHash) % 3 === 0) {
+    return '07b_midrise_gabled';
+  }
+  if (baseKey === '02_modern_residential' || baseKey === '02b_modern_setback') {
+    const mod = Math.abs(slotHash) % 5;
+    if (mod === 0) return '07c_midrise_attic';
+    return mod % 2 === 1 ? '02b_modern_setback' : '02_modern_residential';
   }
   return baseKey;
 }
@@ -517,6 +618,56 @@ function computeStreetAlignedObb(
   };
 }
 
+interface PlacedModuleRecord {
+  readonly baseId: string;
+  readonly x: number;
+  readonly z: number;
+  readonly radius: number;
+}
+
+interface PlacementGuardContext {
+  readonly baseId: string;
+  readonly placed: PlacedModuleRecord[];
+  readonly drivingRoads: readonly ChunkFeature[];
+  readonly ownPoints: readonly RoadPoint[];
+  readonly innerRings?: readonly (readonly (readonly [number, number])[])[];
+}
+
+function pointInsidePolygon2d(x: number, z: number, pts: readonly RoadPoint[]): boolean {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i, i += 1) {
+    const xi = pts[i]?.[0] ?? 0;
+    const zi = pts[i]?.[1] ?? 0;
+    const xj = pts[j]?.[0] ?? 0;
+    const zj = pts[j]?.[1] ?? 0;
+    if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function distToRoadCenter2d(x: number, z: number, roads: readonly ChunkFeature[]): number {
+  let minSq = Infinity;
+  for (const r of roads) {
+    const pts = r.points;
+    if (!pts || pts.length < 2) continue;
+    for (let i = 0; i < pts.length - 1; i += 1) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      if (!a || !b) continue;
+      const dx = b[0] - a[0];
+      const dz = b[1] - a[1];
+      const lenSq = dx * dx + dz * dz;
+      const t =
+        lenSq < 1e-6 ? 0 : Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / lenSq));
+      const px = a[0] + t * dx;
+      const pz = a[1] + t * dz;
+      const dSq = (x - px) * (x - px) + (z - pz) * (z - pz);
+      if (dSq < minSq) minSq = dSq;
+    }
+  }
+  return Math.sqrt(minSq);
+}
+
 function minFootprintGround(
   terrain: BuiltTerrainChunk,
   cx: number,
@@ -527,19 +678,25 @@ function minFootprintGround(
   hd: number,
 ): number {
   let minH = sampleHeight(terrain, cx, cz);
-  const corners: readonly [number, number][] = [
-    [-hw * 0.8, -hd * 0.8],
-    [hw * 0.8, -hd * 0.8],
-    [hw * 0.8, hd * 0.8],
-    [-hw * 0.8, hd * 0.8],
+  const sampleFracs: readonly [number, number][] = [
+    [-0.98, -0.98],
+    [0.98, -0.98],
+    [0.98, 0.98],
+    [-0.98, 0.98],
+    [0, -0.98],
+    [0, 0.98],
+    [-0.98, 0],
+    [0.98, 0],
   ];
-  for (const [lu, lv] of corners) {
+  for (const [fu, fv] of sampleFracs) {
+    const lu = hw * fu;
+    const lv = hd * fv;
     const px = cx + uDir[0] * lu + vDir[0] * lv;
     const pz = cz + uDir[1] * lu + vDir[1] * lv;
     const h = sampleHeight(terrain, px, pz);
     if (h < minH) minH = h;
   }
-  return minH - 0.03;
+  return minH - 0.12;
 }
 
 function computeProportionallySafeScales(
@@ -548,9 +705,9 @@ function computeProportionallySafeScales(
   targetH: number,
   spec: BlenderNominalSpec,
 ): { scaleX: number; scaleY: number; scaleZ: number } {
-  let sx = clamp(targetW / spec.nominalWidthMeters, MIN_AXIS_SCALE, MAX_AXIS_SCALE);
-  let sz = clamp(targetD / spec.nominalDepthMeters, MIN_AXIS_SCALE, MAX_AXIS_SCALE);
-  let sy = clamp(targetH / spec.nominalHeightMeters, MIN_AXIS_SCALE, MAX_AXIS_SCALE);
+  let sx = clamp(targetW / spec.nominalWidthMeters, MIN_XZ_SCALE, MAX_XZ_SCALE);
+  let sz = clamp(targetD / spec.nominalDepthMeters, MIN_XZ_SCALE, MAX_XZ_SCALE);
+  let sy = clamp(targetH / spec.nominalHeightMeters, MIN_HEIGHT_SCALE, MAX_HEIGHT_SCALE);
 
   // Prevent grotesque horizontal squash/stretch ratio between width & depth
   if (sx > sz * MAX_PLANAR_ASPECT) sx = sz * MAX_PLANAR_ASPECT;
@@ -560,8 +717,8 @@ function computeProportionallySafeScales(
   const avgXZ = (sx + sz) * 0.5;
   sy = clamp(
     sy,
-    Math.max(MIN_AXIS_SCALE, avgXZ / MAX_HEIGHT_STRETCH),
-    Math.min(MAX_AXIS_SCALE, avgXZ * MAX_HEIGHT_STRETCH),
+    Math.max(MIN_HEIGHT_SCALE, avgXZ / MAX_HEIGHT_STRETCH),
+    Math.min(MAX_HEIGHT_SCALE, avgXZ * MAX_HEIGHT_STRETCH),
   );
   return { scaleX: sx, scaleY: sy, scaleZ: sz };
 }
@@ -569,6 +726,7 @@ function computeProportionallySafeScales(
 function emitFittedModulesAlongSpan(
   out: BlenderBuildingPlacement[],
   terrain: BuiltTerrainChunk,
+  guard: PlacementGuardContext,
   buildingId: string,
   baseKey: BlenderModelKey,
   district: DistrictKind,
@@ -601,11 +759,12 @@ function emitFittedModulesAlongSpan(
   const modW = spanW / countU;
   const modD = spanD / countV;
   const resolvedTargetH = industrial ? Math.min(targetH, 10.5) : targetH;
+  const primaryU = baseKey === '08_civic_equipment' ? Math.floor((countU - 1) * 0.5) : 0;
 
   for (let iu = 0; iu < countU; iu += 1) {
     for (let iv = 0; iv < countV; iv += 1) {
       const slotIdx = iu * countV + iv;
-      const isPrimaryStreetCorner = iu === 0 && iv === countV - 1;
+      const isPrimaryStreetCorner = iu === primaryU && iv === countV - 1;
       const modKey = isPrimaryStreetCorner
         ? baseKey
         : chooseSiblingVariant(baseKey, seed + slotIdx * 17, district, industrial);
@@ -614,6 +773,14 @@ function emitFittedModulesAlongSpan(
       const vOff = -spanD * 0.5 + modD * (iv + 0.5);
       const mx = cx + uDir[0] * uOff + vDir[0] * vOff;
       const mz = cz + uDir[1] * uOff + vDir[1] * vOff;
+
+      // Never place module inside an explicit courtyard cutout
+      if (
+        guard.innerRings?.some((ring) => ring.length >= 3 && pointInsidePolygon2d(mx, mz, ring))
+      ) {
+        continue;
+      }
+
       // Industrial sheds flip 04_commercial so corrugated loading shutters & service doors face outward toward streets.
       const baseHeading = countV > 1 && iv === 0 ? heading + Math.PI : heading;
       const modHeading =
@@ -627,7 +794,33 @@ function emitFittedModulesAlongSpan(
         resolvedTargetH * heightJitter,
         spec,
       );
-      const y = minFootprintGround(terrain, mx, mz, uDir, vDir, modW * 0.5, modD * 0.5);
+      const actualHw = spec.nominalWidthMeters * scales.scaleX * 0.5;
+      const actualHd = spec.nominalDepthMeters * scales.scaleZ * 0.5;
+      const modRadius = Math.min(actualHw, actualHd);
+
+      // Avoid heavy overlapping clones from duplicate/adjacent OSM polygons
+      let overlapsOther = false;
+      for (const prev of guard.placed) {
+        if (prev.baseId === guard.baseId) continue;
+        const dist = Math.hypot(mx - prev.x, mz - prev.z);
+        if (dist < Math.min(modRadius, prev.radius) * 0.82 || dist < 3.0) {
+          overlapsOther = true;
+          break;
+        }
+      }
+      if (overlapsOther) continue;
+
+      // Keep OBB overhang off active vehicular carriageways when outside the true polygon footprint
+      if (
+        countU * countV > 1 &&
+        !isPrimaryStreetCorner &&
+        !pointInsidePolygon2d(mx, mz, guard.ownPoints) &&
+        distToRoadCenter2d(mx, mz, guard.drivingRoads) < 2.4
+      ) {
+        continue;
+      }
+
+      const y = minFootprintGround(terrain, mx, mz, uDir, vDir, actualHw, actualHd);
       out.push({
         buildingId: `${buildingId}#m${slotIdx}`,
         modelKey: modKey,
@@ -638,6 +831,7 @@ function emitFittedModulesAlongSpan(
         ...scales,
         tint: pickDistrictTint(district, seed + slotIdx * 29),
       });
+      guard.placed.push({ baseId: guard.baseId, x: mx, z: mz, radius: modRadius });
     }
   }
 }
@@ -658,7 +852,15 @@ export function buildBlenderGeoPlacements(
 ): GeoAdaptationResult {
   const placements: BlenderBuildingPlacement[] = [];
   const handledBuildingIds = new Set<string>();
+  const placedRecords: PlacedModuleRecord[] = [];
   const roads = features.filter((f) => f.featureType === 'road' || f.featureType === 'pedestrian');
+  const drivingRoads = roads.filter(
+    (r) =>
+      r.featureType === 'road' &&
+      r.highway !== 'footway' &&
+      r.highway !== 'steps' &&
+      r.highway !== 'path',
+  );
   const neighborVolumes = features
     .filter((f) => f.featureType === 'building' && f.points && f.points.length >= 3)
     .map((f) => {
@@ -712,7 +914,22 @@ export function buildBlenderGeoPlacements(
     const seed = stableBuildingHash(id);
     const district = resolveDistrict(feature, cx, cz);
     const industrial = isIndustrialBuilding(feature, district);
-    const baseKey = selectBlenderArchetype(feature, area, floors, heightMeters, district);
+    const selectedBase = selectBlenderArchetype(feature, area, floors, heightMeters, district);
+    const baseKey = resolveArchitecturalVariant(
+      selectedBase,
+      seed,
+      floors,
+      heightMeters,
+      district,
+      industrial,
+    );
+    const guard: PlacementGuardContext = {
+      baseId: id,
+      placed: placedRecords,
+      drivingRoads,
+      ownPoints: feature.points,
+      innerRings: feature.innerRings,
+    };
 
     // 1. Preserve genuine inner courtyards ("patios interiores") by framing around the hole bounds
     if (
@@ -778,6 +995,7 @@ export function buildBlenderGeoPlacements(
           },
         ];
         let placedAnyWing = false;
+        const countBefore = placements.length;
         for (let wIdx = 0; wIdx < wingDefs.length; wIdx += 1) {
           const wd = wingDefs[wIdx];
           if (!wd || wd.spanW < 3.6 || wd.spanD < 3.2) continue;
@@ -788,6 +1006,7 @@ export function buildBlenderGeoPlacements(
           emitFittedModulesAlongSpan(
             placements,
             terrain,
+            guard,
             `${id}_w${wIdx}`,
             wIdx === 0
               ? baseKey
@@ -804,7 +1023,7 @@ export function buildBlenderGeoPlacements(
             heightMeters,
             seed + wIdx * 11,
           );
-          placedAnyWing = true;
+          if (placements.length > countBefore) placedAnyWing = true;
         }
         if (placedAnyWing) continue;
       }
@@ -830,10 +1049,24 @@ export function buildBlenderGeoPlacements(
         );
         const pFloors = part.floors ?? floors;
         const pHeight = part.heightMeters ?? (pFloors > 0 ? pFloors * 3.15 + 1.4 : heightMeters);
-        const pKey = selectBlenderArchetype(feature, pb.area, pFloors, pHeight, district);
+        const rawPartKey = selectBlenderArchetype(feature, pb.area, pFloors, pHeight, district);
+        const resolvedPartKey = resolveArchitecturalVariant(
+          rawPartKey,
+          seed + pIdx * 19,
+          pFloors,
+          pHeight,
+          district,
+          industrial,
+        );
+        const pKey =
+          pIdx > 0 && resolvedPartKey === '08_civic_equipment' && !industrial
+            ? chooseSiblingVariant('08_civic_equipment', seed + pIdx * 19, district, false)
+            : resolvedPartKey;
+        const countBefore = placements.length;
         emitFittedModulesAlongSpan(
           placements,
           terrain,
+          guard,
           `${id}_p${pIdx}`,
           pKey,
           district,
@@ -848,7 +1081,7 @@ export function buildBlenderGeoPlacements(
           pHeight,
           seed + pIdx * 19,
         );
-        placedPartCount += 1;
+        if (placements.length > countBefore) placedPartCount += 1;
       }
       if (placedPartCount > 0) continue;
     }
@@ -857,6 +1090,7 @@ export function buildBlenderGeoPlacements(
     emitFittedModulesAlongSpan(
       placements,
       terrain,
+      guard,
       id,
       baseKey,
       district,
