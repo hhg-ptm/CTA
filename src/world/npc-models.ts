@@ -609,6 +609,60 @@ export function createDetailedPedestrianGeometry(gltf: GLTF): {
   return { geometry, material };
 }
 
+const VEHICLE_LOD_SCALE = 0.85;
+
+/** Bake a GLB vehicle into one vertex-coloured geometry for instancing. */
+export function createDetailedVehicleGeometry(gltf: GLTF): {
+  readonly geometry: THREE.BufferGeometry;
+  readonly material: THREE.Material;
+} {
+  const parts: THREE.BufferGeometry[] = [];
+  gltf.scene.updateMatrixWorld(true);
+  gltf.scene.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    const baked = object.geometry.clone();
+    baked.applyMatrix4(object.matrixWorld);
+    const positions = baked.getAttribute('position');
+    if (!positions) return;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', positions.clone());
+    const normals = baked.getAttribute('normal');
+    if (normals) geometry.setAttribute('normal', normals.clone());
+    else geometry.computeVertexNormals();
+    const material = Array.isArray(object.material) ? object.material[0] : object.material;
+    const color =
+      material instanceof THREE.MeshStandardMaterial ? material.color : new THREE.Color(0xffffff);
+    const colors = new Float32Array(positions.count * 3);
+    for (let index = 0; index < positions.count; index += 1) {
+      colors.set([color.r, color.g, color.b], index * 3);
+    }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const part = geometry.index ? geometry.toNonIndexed() : geometry;
+    if (part !== geometry) geometry.dispose();
+    parts.push(part);
+  });
+  const geometry = mergeGeometries(parts, false);
+  if (!geometry) throw new Error('The vehicle asset does not contain a mesh.');
+  // The GT is wider than the old procedural sedan; keep NPC lanes unchanged.
+  geometry.scale(VEHICLE_LOD_SCALE, VEHICLE_LOD_SCALE, VEHICLE_LOD_SCALE);
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return { geometry, material: vehicleMaterial() };
+}
+
+/** Swap fallback geometry/material for a baked GLB without changing instance data. */
+export function replaceInstancedModel(
+  mesh: THREE.InstancedMesh,
+  detailed: { readonly geometry: THREE.BufferGeometry; readonly material: THREE.Material },
+): void {
+  mesh.geometry.dispose();
+  const previous = mesh.material;
+  if (Array.isArray(previous)) for (const item of previous) item.dispose();
+  else previous.dispose();
+  mesh.geometry = detailed.geometry;
+  mesh.material = detailed.material;
+}
+
 export function createVehicleMesh(capacity: number): THREE.InstancedMesh {
   const mesh = new THREE.InstancedMesh(vehicleGeometry(), vehicleMaterial(), capacity);
   mesh.name = 'traffic';

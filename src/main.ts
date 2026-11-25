@@ -819,6 +819,8 @@ async function initializeNpcs(worldBaseUrl: URL): Promise<void> {
     agentColliders,
   );
   scene.add(npcs.group);
+  police = new PoliceSystem(graph, agentColliders);
+  scene.add(police.group);
   if (chunks) {
     void chunks
       .loadModel(modelUrl('models/characters/caceres-pedestrian.glb'), 60)
@@ -828,9 +830,23 @@ async function initializeNpcs(worldBaseUrl: URL): Promise<void> {
           error: String(error),
         });
       });
+    void chunks
+      .loadModel(modelUrl('models/vehicles/caceres-gt-traffic.glb'), 60)
+      .then((gltf) => npcs?.setVehicleModel(gltf))
+      .catch((error: unknown) => {
+        logger.warn('Traffic vehicle model failed to load; keeping the built-in sedans', {
+          error: String(error),
+        });
+      });
+    void chunks
+      .loadModel(modelUrl('models/vehicles/caceres-gt-police.glb'), 60)
+      .then((gltf) => police?.setVehicleModel(gltf))
+      .catch((error: unknown) => {
+        logger.warn('Police vehicle model failed to load; keeping the built-in patrol cars', {
+          error: String(error),
+        });
+      });
   }
-  police = new PoliceSystem(graph, agentColliders);
-  scene.add(police.group);
   logger.info('Traffic and pedestrians initialized', {
     nodes: graph.nodeCount,
     segments: graph.segments.length,

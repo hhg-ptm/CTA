@@ -6,9 +6,11 @@ import { RoadGraph } from './road-graph';
 import type { AgentMode } from './road-graph';
 import {
   createDetailedPedestrianGeometry,
+  createDetailedVehicleGeometry,
   createPedestrianMesh,
   createVehicleMesh,
   disposeAgentMesh,
+  replaceInstancedModel,
 } from './npc-models';
 
 export interface NpcWorld {
@@ -168,13 +170,12 @@ export class NpcSystem {
 
   /** Replace the low-poly crowd with one baked walk pose from the CC0 rigged asset. */
   setPedestrianModel(gltf: GLTF): void {
-    const detailed = createDetailedPedestrianGeometry(gltf);
-    this.pedestrianMesh.geometry.dispose();
-    const previousMaterial = this.pedestrianMesh.material;
-    if (Array.isArray(previousMaterial)) previousMaterial.forEach((item) => item.dispose());
-    else previousMaterial.dispose();
-    this.pedestrianMesh.geometry = detailed.geometry;
-    this.pedestrianMesh.material = detailed.material;
+    replaceInstancedModel(this.pedestrianMesh, createDetailedPedestrianGeometry(gltf));
+  }
+
+  /** Replace the built-in sedans with the instanced Caceres GT traffic LOD. */
+  setVehicleModel(gltf: GLTF): void {
+    replaceInstancedModel(this.vehicleMesh, createDetailedVehicleGeometry(gltf));
   }
 
   /** Pedestrians within the radius run away and avoid the threat at junctions. */
