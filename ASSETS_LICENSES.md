@@ -34,7 +34,8 @@ La ruta de Blender depende de la instalación local; el script no se ejecuta en 
 | Asset | Archivo | Licencia | Fuente | Atribución |
 | --- | --- | --- | --- | --- |
 | Kenney — Animated Characters: Protagonists | `public/models/characters/caceres-pedestrian.glb` | CC0 1.0 | https://kenney.nl/assets/animated-characters-protagonists | Rig convertido de FBX a GLB con `tools/generate_cc0_assets.py`; textura `skaterMaleA` embebida y clips `idle`/`walk`. Sustituye a Tevy «Casual Walker». |
-| Kenney — Car Kit | `public/models/vehicles/caceres-sedan.glb` | CC0 1.0 | https://kenney.nl/assets/car-kit | Sedán GLB reexportado con `colormap.png` embebida, sin marcas. Sustituye a Innerscene «Graphite sedan». |
+| Kenney — Car Kit | `public/models/vehicles/caceres-sedan.glb` | CC0 1.0 | https://kenney.nl/assets/car-kit | Sedán GLB reexportado con `colormap.png` embebida, sin marcas. Conservado como referencia/fallback; sustituyó a Innerscene «Graphite sedan». |
+| Producción propia — Cáceres GT | `public/models/vehicles/caceres-gt.glb` | CC0 1.0 | Geometría original generada en Blender 5.2 | Cupé deportivo ficticio creado desde cero con `build_car.py`; convertido a GLB de 5 nodos con `export_car_glb.py`. Sin marcas, texturas ni geometría de terceros. Modelo jugable actual. |
 
 Los archivos antiguos (`casual-walker*.glb` y `graphite-sedan.glb`) se han eliminado. El peatón sirve jugador y multitud: `character.ts` reproduce sus animaciones y `npc-system.ts` hornea una pose de marcha para el `InstancedMesh`, que actúa como LOD1 sin segundo archivo.
 
@@ -50,5 +51,5 @@ Para regenerar los derivados (requiere Blender 5.x y los paquetes CC0 descargado
 
 ## Pendiente
 
-- Revisar en navegador la orientación del peatón y la alineación del sedán con el colisionador y las ruedas animadas.
+- Revisar en navegador la orientación del peatón y la alineación del Cáceres GT con el colisionador y las ruedas animadas.
 - Valorar variantes adicionales de Kenney (taxi, patrulla) para tráfico ambiental sin romper el instanciado por color.
