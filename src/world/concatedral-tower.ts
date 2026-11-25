@@ -1,4 +1,5 @@
 import { BuildingGeometryWriter, type BuildingColor, type BuildingUv } from './building-geometry';
+import { resolveLandmarkModelPath } from './custom-landmarks';
 import { sampleHeight, type RoadPoint, type RoadPoint3 } from './road-geometry';
 import type { BuiltTerrainChunk, ChunkFeature, ProjectedBounds } from './types';
 
@@ -175,7 +176,7 @@ export function addConcatedralTower(
     (feature) =>
       feature.featureType === 'building' && feature.id === 'w385037723' && feature.points,
   );
-  if (!church?.points) return;
+  if (!church?.points || resolveLandmarkModelPath(church)) return;
   const edge = westernEndEdge(church);
   if (!edge) return;
   const midpoint: RoadPoint = [

@@ -60,4 +60,13 @@ describe('landmark GLB discovery', () => {
     );
     await expect(discoverLandmarkModels(root)).rejects.toThrow('External URIs are forbidden');
   });
+
+  it('validates all committed custom Blender monument GLBs in public/landmarks', async () => {
+    const discovered = await discoverLandmarkModels(path.resolve(process.cwd(), 'public'));
+    expect(discovered.has('w22358108')).toBe(true);
+    expect(discovered.has('w382363931')).toBe(true);
+    expect(discovered.has('w385037723')).toBe(true);
+    expect(discovered.has('w385037728')).toBe(true);
+    expect(discovered.has('w467504814')).toBe(true);
+  });
 });

@@ -10,6 +10,7 @@ import {
   selectPrimaryStreetEdge,
 } from './building-details';
 import { isTowerFeature, stableBuildingHash } from './building-styles';
+import { resolveLandmarkModelPath } from './custom-landmarks';
 import { isTowerLandmark } from './landmark-geometry';
 import { sampleHeight, type RoadPoint } from './road-geometry';
 import type {
@@ -1013,7 +1014,7 @@ export function buildBlenderGeoPlacements(
 
     // Preserve dedicated historical landmarks with bespoke w*.glb / hand-authored towers
     if (
-      (feature.landmarkModelPath && /^landmarks\/w\d+\.glb$/.test(feature.landmarkModelPath)) ||
+      Boolean(resolveLandmarkModelPath(feature)) ||
       isTowerFeature(feature) ||
       isTowerLandmark(feature)
     ) {

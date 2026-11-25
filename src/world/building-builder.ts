@@ -34,6 +34,7 @@ import {
 } from './building-volumes';
 import { addLandmarkGeometry, isTowerLandmark } from './landmark-geometry';
 import { buildBlenderGeoPlacements } from './blender-geo-adapter';
+import { resolveLandmarkModelPath } from './custom-landmarks';
 import { clipToBounds, sampleHeight, type RoadPoint, type RoadPoint3 } from './road-geometry';
 import type {
   BuildingPipelineMode,
@@ -741,11 +742,7 @@ function buildLod(
     const item = list[i];
     if (!item) continue;
     if (handledBlenderIds.has(item.feature.id ?? '')) continue;
-    if (
-      item.feature.landmarkModelPath &&
-      /^landmarks\/w\d+\.glb$/.test(item.feature.landmarkModelPath)
-    )
-      continue;
+    if (resolveLandmarkModelPath(item.feature)) continue;
     const key = `${item.feature.id ?? ''}:${i}`;
     const exposed = detailed ? (exposedMap.get(key) ?? []) : [];
     const primaryEdgeIdx = detailed ? (primaryEdgeMap.get(key) ?? -1) : -1;
@@ -797,14 +794,11 @@ function buildExtras(
       center[0] < bounds.maxX &&
       center[1] >= bounds.minZ &&
       center[1] < bounds.maxZ;
-    if (
-      owner &&
-      feature.landmarkModelPath &&
-      /^landmarks\/w\d+\.glb$/.test(feature.landmarkModelPath)
-    ) {
+    const landmarkPath = resolveLandmarkModelPath(feature);
+    if (owner && landmarkPath) {
       models.push({
         buildingId: feature.id ?? '',
-        path: feature.landmarkModelPath,
+        path: landmarkPath,
         position: [center[0], localHeight(terrain, center), center[1]],
       });
     }
@@ -932,7 +926,10 @@ export function buildBuildingChunk(
     ),
   );
   const detailVolumes = allLod0Volumes
-    .filter((vol) => !handledBlenderIds.has(vol.feature.id ?? ''))
+    .filter(
+      (vol) =>
+        !handledBlenderIds.has(vol.feature.id ?? '') && !resolveLandmarkModelPath(vol.feature),
+    )
     .map((vol, i) => ({
       ...vol,
       detailKey: `${vol.feature.id ?? ''}#${i}`,

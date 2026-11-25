@@ -82,3 +82,20 @@ OpenCode conecta los vehículos de servicio y simulación con la ciudad únicame
 - **De Gemini B hacia Gemini A:** carga lazy vía `loadWorldGeoQuery(import.meta.env.BASE_URL)` cuando el jugador inicie misiones, oficios o UI inmobiliaria (no penaliza la carga inicial `< 25 MB` ni el arranque).
 - **De OpenCode hacia Gemini A:** uso opcional de `VehicleRouteStopAnchor` y `GeoEnvironmentBridge` como interfaz pura; `VehicleSimulationApi` mantiene su propia física y ciclo de actualización en sus módulos sin cambios de Gemini A en `src/world/vehicle.ts`, `npc-system.ts`, `police-system.ts` o `src/main.ts`.
 - **Validación automática integrada:** [`tools/verify-world.mjs`](../tools/verify-world.mjs) valida los catálogos `portals.json` y `bus-stops.json` (rangos `±3840 m`, cotas reales `200..900 m`, `0` fugas catastrales y `0` marcas bloqueadas) dentro de `npm run data:verify`, complementado por [`tests/world-geo-query.test.ts`](../tests/world-geo-query.test.ts).
+
+---
+
+## 5. Primeros monumentos GLB personalizados (`public/landmarks/`)
+
+Modelados en Blender 5.2 ([`tools/blender_landmarks/build_monuments.py`](../tools/blender_landmarks/build_monuments.py)) directamente sobre sus huellas métricas OSM (`EPSG:25829`) centradas mediante `polygon_centroid` con cimentación bajo cota (`-2,6 m`) y atlas PBR embebido de `2` materiales (`<= 1.700` triángulos y `<= 135 KB` cada GLB, sin URIs externas):
+
+| ID OSM | Monumento | Archivo GLB | Triángulos | Peso | Materiales |
+| --- | --- | --- | ---: | ---: | ---: |
+| `w385037728` | Torre de Bujaco | [`public/landmarks/w385037728.glb`](../public/landmarks/w385037728.glb) | `1.032` | `88.140 B` (`86,1 KiB`) | `2` |
+| `w467504814` | Torre de Carvajal | [`public/landmarks/w467504814.glb`](../public/landmarks/w467504814.glb) | `1.004` | `86.252 B` (`84,2 KiB`) | `2` |
+| `w385037723` | Concatedral de Santa María | [`public/landmarks/w385037723.glb`](../public/landmarks/w385037723.glb) | `1.176` | `98.636 B` (`96,3 KiB`) | `2` |
+| `w22358108` | Ayuntamiento de Cáceres | [`public/landmarks/w22358108.glb`](../public/landmarks/w22358108.glb) | `668` | `62.568 B` (`61,1 KiB`) | `2` |
+| `w382363931` | Palacio de las Veletas | [`public/landmarks/w382363931.glb`](../public/landmarks/w382363931.glb) | `1.693` | `134.848 B` (`131,7 KiB`) | `2` |
+
+- **Integración retrocompatible sin modificar `public/world/cc-monumental/`:** [`src/world/custom-landmarks.ts`](../src/world/custom-landmarks.ts) expone `resolveLandmarkModelPath()` consumido por `building-builder.ts`, `blender-geo-adapter.ts` y `landmark-geometry.ts` / `concatedral-tower.ts` / `landmark-details.ts` para sustituir el bloque procedural por el GLB dedicado manteniendo colisionadores y `data/landmarks/status.json` en `pending` hasta revisión fotográfica humana.
+

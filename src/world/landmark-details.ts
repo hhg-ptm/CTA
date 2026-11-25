@@ -1,4 +1,5 @@
 import { BuildingGeometryWriter, type BuildingColor, type BuildingUv } from './building-geometry';
+import { resolveLandmarkModelPath } from './custom-landmarks';
 import { sampleHeight, type RoadPoint, type RoadPoint3 } from './road-geometry';
 import type { BuiltTerrainChunk, ChunkFeature, ProjectedBounds } from './types';
 
@@ -338,7 +339,7 @@ export function addConcatedralPortal(
     (feature) =>
       feature.featureType === 'building' && feature.id === 'w385037723' && feature.points,
   );
-  if (!church?.points) return;
+  if (!church?.points || resolveLandmarkModelPath(church)) return;
   const edge = plazaFacingEdge(church, plaza);
   if (!edge || edge.length < 4) return;
   const center: RoadPoint = [(edge.start[0] + edge.end[0]) / 2, (edge.start[1] + edge.end[1]) / 2];
@@ -440,7 +441,7 @@ export function addPlazaMayorArcade(
   const townHall = features.find(
     (feature) => feature.featureType === 'building' && feature.id === 'w22358108' && feature.points,
   );
-  if (!townHall?.points) return;
+  if (!townHall?.points || resolveLandmarkModelPath(townHall)) return;
   const edge = plazaFacingEdge(townHall, plaza);
   if (!edge) return;
   const edgeCenter: RoadPoint = [

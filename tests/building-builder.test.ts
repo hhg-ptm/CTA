@@ -124,6 +124,29 @@ describe('building geometry', () => {
     expect(built.levels[0]?.triangleCount).toBe(0);
   });
 
+  it('resolves custom monumental GLB overrides without emitting duplicate walls', () => {
+    const bujacoFeature: ChunkFeature = {
+      id: 'w385037728',
+      featureType: 'building',
+      zone: 'casco',
+      visualFloors: 4,
+      visualHeightMeters: 16,
+      points: [
+        [-3, -3],
+        [3, -3],
+        [3, 3],
+        [-3, 3],
+        [-3, -3],
+      ],
+    };
+    const built = buildBuildingChunk([bujacoFeature, road], terrain, bounds);
+    expect(built.landmarkModels).toEqual([
+      { buildingId: 'w385037728', path: 'landmarks/w385037728.glb', position: [0, 400, 0] },
+    ]);
+    expect(built.levels[0]?.triangleCount).toBe(0);
+    expect(built.colliderIndices.length).toBeGreaterThan(0);
+  });
+
   it('assigns distinct architectural styles and Blender detail batches across building types', () => {
     const palaceStyle = classifyBuilding(
       {

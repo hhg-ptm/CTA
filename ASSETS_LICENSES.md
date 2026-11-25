@@ -17,8 +17,9 @@ Este archivo es el inventario canónico de modelos 3D. Los datos geográficos y 
 | City Kit — ventanas por zona | `public/models/citykit/window-{casco,ensanche,modern}-lod{0,1}.glb` | CC0-1.0 | Ídem | Ventanas 3D diferenciadas: contraventanas de madera, cajas de persiana y viseras modernas. |
 | City Kit — portales y escaparates | `public/models/citykit/{portal-casco,portal-modern,shopfront-awning,industrial-door}-lod{0,1}.glb` | CC0-1.0 | Ídem | Portadas de dovelas, portales acristalados, locales con toldo a rayas y portones industriales. |
 | City Kit — esquineros y cubiertas | `public/models/citykit/{pilaster-corner,rooftop-penthouse,rooftop-hvac,dormer-roof,bell-gable,corner-turret,heraldic-crest}-lod{0,1}.glb` | CC0-1.0 | Ídem | Sillares esquinales, casetas de ascensor, climatizadores, buhardillas, espadañas, matacanes y escudos. |
+| Monumentos propios (5 BIC/hitos) | `public/landmarks/w{22358108,382363931,385037723,385037728,467504814}.glb` | CC0-1.0 | Propia (Blender 5.2 `tools/blender_landmarks/build_monuments.py`) | GLB originales de Ayuntamiento, Palacio de las Veletas, Concatedral de Santa María, Torre de Bujaco y Torre de Carvajal (`<= 2` materiales embebidos, `<= 135 KB`). |
 
-Todos los GLB del kit comparten un atlas procedural embebido (`kit_atlas`, 1 primitiva por modelo), sin texturas externas, sin marcas y sin referencias a juegos comerciales. El manifest con recuento de triángulos y bytes está en `public/models/citykit/manifest.json`.
+Todos los GLB del kit comparten un atlas procedural embebido (`kit_atlas`, 1 primitiva por modelo), y los 5 monumentos de `public/landmarks/` comparten textura atlas embebida (`<= 2` materiales), sin texturas externas, sin marcas y sin referencias a juegos comerciales. El manifest con recuento de triángulos y bytes del kit está en `public/models/citykit/manifest.json`.
 
 Para regenerarlos (requiere Blender 5.x instalado):
 

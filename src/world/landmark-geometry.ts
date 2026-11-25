@@ -1,4 +1,5 @@
 import { BuildingGeometryWriter, type BuildingColor, type BuildingUv } from './building-geometry';
+import { resolveLandmarkModelPath } from './custom-landmarks';
 import { sampleHeight, type RoadPoint, type RoadPoint3 } from './road-geometry';
 import type { BuiltTerrainChunk, ChunkFeature, ProjectedBounds } from './types';
 import {
@@ -335,7 +336,7 @@ export function addLandmarkGeometry(
   addHistoricWalls(writer, features, terrain, bounds, lod);
   for (const feature of features) {
     const points = feature.points;
-    if (!isTowerLandmark(feature) || !points || feature.landmarkModelPath) continue;
+    if (!isTowerLandmark(feature) || !points || resolveLandmarkModelPath(feature)) continue;
     const center = points.reduce(
       (sum, point) => [sum[0] + point[0] / points.length, sum[1] + point[1] / points.length],
       [0, 0],
