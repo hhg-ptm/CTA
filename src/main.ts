@@ -15,7 +15,9 @@ import { NpcSystem } from './world/npc-system';
 import { PoliceSystem } from './world/police-system';
 import { RoadGraph } from './world/road-graph';
 import type { RoadNetwork, ShadowLodProfile } from './world/types';
-import { Vehicle } from './world/vehicle';
+import { NEUTRAL_DRIVE_INPUT, Vehicle, type VehicleDriveInput } from './world/vehicle';
+import type { VehicleCommands, VehicleSimulationApi } from './world/vehicle-simulation-api';
+import { VehicleSimulation, type VehicleSimulationMetrics } from './world/vehicle-simulation';
 import { createPhysicsWorld } from './world/terrain-physics';
 import type { World } from '@dimforge/rapier3d-compat';
 import { AudioSystem } from './engine/audio-system';
@@ -261,8 +263,13 @@ let chunks: ChunkManager | undefined;
 let agentColliders: AgentColliders | undefined;
 let npcs: NpcSystem | undefined;
 let police: PoliceSystem | undefined;
+let vehicleSimulation: VehicleSimulation | undefined;
+let vehicleApi: VehicleSimulationApi | undefined;
 const crime = new CrimeSystem();
 const vehicles: Vehicle[] = [];
+
+type EnterVehicleOptions = Parameters<VehicleCommands['enterVehicle']>[0];
+type ExitVehicleOptions = Parameters<VehicleCommands['exitVehicle']>[0];
 
 function modelUrl(path: string): string {
   const baseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
@@ -330,6 +337,11 @@ interface DebugSnapshot {
   readonly worldMemoryMiB: number;
   readonly heapMemoryMiB: number | null;
   readonly agentsByLod: readonly [number, number, number];
+  readonly vehicleSimulation: VehicleSimulationMetrics | null;
+  readonly trafficEvents: {
+    readonly followingBrakes: number;
+    readonly roundaboutExits: number;
+  } | null;
   readonly fps: number;
   readonly peakFrameMs: number;
   readonly systemTimesMs: {
@@ -366,6 +378,8 @@ declare global {
       thirdPersonView(x: number, z: number, yaw?: number, pitch?: number): void;
       setShadowProfile(profile: ShadowLodProfile): void;
       metrics(): DebugSnapshot;
+      vehicleApi?: VehicleSimulationApi;
+      renderProfile?: () => unknown;
     };
   }
 }
@@ -401,6 +415,13 @@ function debugSnapshot(): DebugSnapshot {
     worldMemoryMiB: chunks?.memoryMiB ?? 0,
     heapMemoryMiB: browserMemory ? browserMemory.usedJSHeapSize / (1024 * 1024) : null,
     agentsByLod: npcs?.lodCounts ?? [0, 0, 0],
+    vehicleSimulation: vehicleSimulation?.metrics ?? null,
+    trafficEvents: npcs
+      ? {
+          followingBrakes: npcs.diagnostics.followingBrakes,
+          roundaboutExits: npcs.diagnostics.roundaboutExits,
+        }
+      : null,
     fps: Number(fpsLabel.textContent ?? 0),
     peakFrameMs: maximumFrameMs,
     systemTimesMs: {
@@ -479,6 +500,103 @@ if (debugMode) {
     thirdPersonView: setThirdPersonAuditView,
     setShadowProfile: (profile) => chunks?.setShadowProfile(profile),
     metrics: debugSnapshot,
+    get vehicleApi() {
+      return vehicleApi;
+    },
+    renderProfile: () => {
+      const buckets = new Map<
+        string,
+        {
+          meshes: number;
+          instancedCalls: number;
+          instances: number;
+          tris: number;
+          castShadowMeshes: number;
+          castShadowTris: number;
+        }
+      >();
+      scene.traverse((obj) => {
+        const node = obj as unknown as {
+          isMesh?: boolean;
+          isInstancedMesh?: boolean;
+          count?: number;
+          visible?: boolean;
+          castShadow?: boolean;
+          receiveShadow?: boolean;
+          name?: string;
+          parent?: { visible?: boolean; name?: string } | null;
+          geometry?: {
+            index?: { count: number } | null;
+            attributes?: { position?: { count: number } };
+          };
+          material?:
+            | {
+                name?: string;
+                type?: string;
+                colorWrite?: boolean;
+                roughness?: number;
+                vertexColors?: boolean;
+                map?: { image?: { width?: number; height?: number } } | null;
+              }
+            | Array<{
+                name?: string;
+                type?: string;
+                colorWrite?: boolean;
+                roughness?: number;
+                vertexColors?: boolean;
+                map?: { image?: { width?: number; height?: number } } | null;
+              }>;
+        };
+        if (!node.isMesh) return;
+        let cur: {
+          visible?: boolean;
+          parent?: { visible?: boolean; name?: string } | null;
+        } | null = node;
+        let ancestorHidden = false;
+        while (cur) {
+          if (cur.visible === false) {
+            ancestorHidden = true;
+            break;
+          }
+          cur = cur.parent ?? null;
+        }
+        if (ancestorHidden) return;
+        const posCount = node.geometry?.attributes?.position?.count ?? 0;
+        const baseTris = node.geometry?.index
+          ? Math.round(node.geometry.index.count / 3)
+          : Math.round(posCount / 3);
+        const instCount = node.isInstancedMesh ? (node.count ?? 0) : 1;
+        if (node.isInstancedMesh && instCount <= 0) return;
+        const mats = Array.isArray(node.material) ? node.material : [node.material];
+        const firstMat = mats[0];
+        const matTag = firstMat
+          ? firstMat.colorWrite === false
+            ? 'shadowProxy(colorWrite=false)'
+            : `${firstMat.type ?? 'mat'}:${firstMat.name || ''}:r=${firstMat.roughness ?? ''}:vc=${Boolean(firstMat.vertexColors)}:tex=${firstMat.map?.image?.width ?? 0}x${firstMat.map?.image?.height ?? 0}:m=${mats.length}`
+          : 'nomat';
+        const key = `${node.isInstancedMesh ? 'INST' : 'MESH'}|${node.parent?.name || '-'}|${node.name || '-'}|${matTag}|cast=${Boolean(node.castShadow)}|recv=${Boolean(node.receiveShadow)}`;
+        const prev = buckets.get(key) ?? {
+          meshes: 0,
+          instancedCalls: 0,
+          instances: 0,
+          tris: 0,
+          castShadowMeshes: 0,
+          castShadowTris: 0,
+        };
+        prev.meshes += 1;
+        if (node.isInstancedMesh) prev.instancedCalls += 1;
+        prev.instances += instCount;
+        prev.tris += baseTris * instCount;
+        if (node.castShadow) {
+          prev.castShadowMeshes += 1;
+          prev.castShadowTris += baseTris * instCount;
+        }
+        buckets.set(key, prev);
+      });
+      return Array.from(buckets.entries())
+        .map(([key, v]) => ({ key, ...v }))
+        .sort((a, b) => b.meshes - a.meshes);
+    },
   };
 }
 
@@ -532,6 +650,88 @@ function spawnDebugVehicle(): string {
   return 'Vehículo de pruebas creado a 4 m del jugador.';
 }
 
+/** Command behind VehicleSimulationApi.enterVehicle. */
+function enterControlledVehicle(options?: EnterVehicleOptions): boolean {
+  if (inVehicle || !chunks) return false;
+  const origin = options?.position
+    ? new THREE.Vector3(options.position.x, character.position.y, options.position.z)
+    : character.position;
+  const maxDistance = options?.maxDistance ?? 3;
+  let nearest: Vehicle | null = null;
+
+  if (options?.id !== undefined) {
+    const candidate = vehicles[options.id];
+    if (candidate && candidate.position.distanceTo(origin) <= maxDistance) nearest = candidate;
+  } else {
+    let best = maxDistance;
+    for (const vehicle of vehicles) {
+      const distance = vehicle.position.distanceTo(origin);
+      if (distance >= best) continue;
+      best = distance;
+      nearest = vehicle;
+    }
+    if (!nearest && options?.position === undefined && npcs && world) {
+      const claimed = npcs.claimVehicle(origin, Math.max(maxDistance, 4.5));
+      if (claimed) {
+        const stolen = new Vehicle(
+          world,
+          claimed.x,
+          claimed.y,
+          claimed.z,
+          claimed.heading,
+          claimed.color,
+        );
+        vehicles.push(stolen);
+        scene.add(stolen.group);
+        stolen.chassisBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        stolen.chassisBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
+        loadVehicleVisual(stolen);
+        world.updateSceneQueries();
+        nearest = stolen;
+        if (crime.report('vehicleTheft', claimed.x, claimed.z)) {
+          npcs.alarm(claimed.x, claimed.z);
+          showNotice(t('notice.vehicleTheft'), performance.now());
+        }
+      }
+    }
+  }
+
+  if (!nearest) {
+    if (options === undefined) showNotice(t('notice.noVehicle'), performance.now(), 1600);
+    return false;
+  }
+  inVehicle = true;
+  activeVehicle = nearest;
+  character.position.copy(nearest.position);
+  character.group.visible = false;
+  // Keep the camera behind the nose after entering an already moving vehicle.
+  cameraRig.setYaw(nearest.heading + Math.PI);
+  vehicleSimulation?.notifyEntered(nearest);
+  return true;
+}
+
+/** Command behind VehicleSimulationApi.exitVehicle. */
+function exitControlledVehicle(options?: ExitVehicleOptions): boolean {
+  if (!inVehicle || !activeVehicle || !chunks) return false;
+  const sideSign = options?.side === 'left' ? -1 : 1;
+  const side = new THREE.Vector3(1.8 * sideSign, 0, 0).applyQuaternion(
+    activeVehicle.group.quaternion,
+  );
+  let exitPos = activeVehicle.position.clone().add(side);
+  if (chunks.collidesWithBuilding(exitPos.x, exitPos.z, 0.4)) {
+    exitPos = activeVehicle.position.clone().sub(side);
+  }
+  character.position.copy(exitPos);
+  const height = chunks.groundHeightAt(character.position.x, character.position.z);
+  if (height !== undefined) character.position.y = height;
+  vehicleSimulation?.notifyExited(activeVehicle);
+  inVehicle = false;
+  activeVehicle = null;
+  character.group.visible = true;
+  cameraRig.mode = 'thirdPerson';
+  return true;
+}
+
 function updateDebugModeLabel(): void {
   debugModesLabel.textContent = `F5 colisiones ${showColliderWireframes ? 'ON' : 'OFF'} · F6 calzadas ${showRoadWireframes ? 'ON' : 'OFF'} · F7 LOD ${showLodBounds ? 'ON' : 'OFF'} · F8 sombras ${showShadows ? 'ON' : 'OFF'} · F9 city kit ${cityKitEnabled ? 'ON' : 'OFF'}`;
 }
@@ -549,6 +749,7 @@ function handleBust(timestamp: number): void {
   crime.reset();
   audio.playBusted();
   cameraRig.addTrauma(0.5);
+  if (activeVehicle) vehicleSimulation?.notifyExited(activeVehicle);
   inVehicle = false;
   activeVehicle = null;
   character.group.visible = true;
@@ -601,15 +802,19 @@ const loop = new FixedStepLoop([], (interpolation, frameSeconds, timestamp) => {
   const rawFrameMs = Math.max(0, timestamp - previousFrameTimestamp);
   previousFrameTimestamp = timestamp;
   maximumFrameMs = Math.max(maximumFrameMs, rawFrameMs);
+  let driveInput: VehicleDriveInput = NEUTRAL_DRIVE_INPUT;
   if (inVehicle && activeVehicle) {
-    const driveInput = {
+    driveInput = {
       forward: input.isPressed('moveForward'),
       backward: input.isPressed('moveBack'),
       left: input.isPressed('moveLeft'),
       right: input.isPressed('moveRight'),
       handbrake: spacePressed,
     };
-    activeVehicle.update(frameSeconds, driveInput);
+  }
+  // One Rapier step for every dynamic chassis, including parked traffic cars.
+  vehicleSimulation?.step(frameSeconds, inVehicle ? activeVehicle : null, driveInput);
+  if (inVehicle && activeVehicle) {
     audio.updateVehicleEngine(true, activeVehicle.speed, driveInput.forward || driveInput.backward);
     const isSkidding =
       (driveInput.handbrake && activeVehicle.speed > 3) ||
@@ -931,66 +1136,10 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
     event.preventDefault();
   }
   if (event.code === 'KeyE') {
-    if (inVehicle && activeVehicle) {
-      const side = new THREE.Vector3(1.8, 0, 0).applyQuaternion(activeVehicle.group.quaternion);
-      let exitPos = activeVehicle.position.clone().add(side);
-      if (chunks?.collidesWithBuilding(exitPos.x, exitPos.z, 0.4)) {
-        exitPos = activeVehicle.position.clone().sub(side);
-      }
-      character.position.copy(exitPos);
-      const h = chunks?.groundHeightAt(character.position.x, character.position.z);
-      if (h !== undefined) character.position.y = h;
-      inVehicle = false;
-      activeVehicle = null;
-      character.group.visible = true;
-      cameraRig.mode = 'thirdPerson';
-    } else {
-      // Prefer a vehicle the player already owns, then requisition an ambient one.
-      let nearest: Vehicle | null = null;
-      let best = 3;
-      for (const v of vehicles) {
-        const d = v.position.distanceTo(character.position);
-        if (d < best) {
-          best = d;
-          nearest = v;
-        }
-      }
-      if (!nearest && npcs && world) {
-        const claimed = npcs.claimVehicle(character.position, 4.5);
-        if (claimed) {
-          const stolen = new Vehicle(
-            world,
-            claimed.x,
-            claimed.y,
-            claimed.z,
-            claimed.heading,
-            claimed.color,
-          );
-          vehicles.push(stolen);
-          scene.add(stolen.group);
-          stolen.chassisBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
-          stolen.chassisBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
-          loadVehicleVisual(stolen);
-          world.updateSceneQueries();
-          nearest = stolen;
-          if (crime.report('vehicleTheft', claimed.x, claimed.z)) {
-            npcs.alarm(claimed.x, claimed.z);
-            showNotice(t('notice.vehicleTheft'), performance.now());
-          }
-        }
-      }
-      if (nearest) {
-        inVehicle = true;
-        activeVehicle = nearest;
-        character.position.copy(nearest.position);
-        character.group.visible = false;
-        // Otherwise the pedestrian's camera yaw remains and can sit in front
-        // of the car, making forward and steering feel reversed.
-        cameraRig.setYaw(nearest.heading + Math.PI);
-      } else {
-        showNotice(t('notice.noVehicle'), performance.now(), 1600);
-      }
-    }
+    const changed = inVehicle
+      ? (vehicleApi?.exitVehicle() ?? false)
+      : (vehicleApi?.enterVehicle() ?? false);
+    if (!changed && !vehicleApi) showNotice(t('notice.noVehicle'), performance.now(), 1600);
   }
 });
 window.addEventListener('keyup', (event: KeyboardEvent) => {
@@ -1052,6 +1201,14 @@ async function initializeWorld(): Promise<void> {
   const startHeight = chunks.groundHeightAt(0, 0);
   if (startHeight !== undefined) character.position.y = startHeight;
   if (world) {
+    vehicleSimulation = new VehicleSimulation(world, vehicles);
+    vehicleApi = vehicleSimulation.createApi(
+      {
+        enterVehicle: (options) => enterControlledVehicle(options),
+        exitVehicle: (options) => exitControlledVehicle(options),
+      },
+      () => activeVehicle,
+    );
     const spawnH = chunks.groundHeightAt(8, 8) ?? 0;
     const vehicle = new Vehicle(world, 8, spawnH, 8, 0);
     vehicles.push(vehicle);

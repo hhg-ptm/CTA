@@ -119,9 +119,9 @@ export const BLENDER_MODEL_SPECS: Readonly<Record<BlenderModelKey, BlenderNomina
 const MIN_XZ_SCALE = 0.44;
 const MAX_XZ_SCALE = 1.24;
 const MAX_PLANAR_ASPECT = 1.28;
-const MIN_HEIGHT_SCALE = 0.46;
-const MAX_HEIGHT_SCALE = 1.42;
-const MAX_HEIGHT_STRETCH = 1.42;
+const MIN_HEIGHT_SCALE = 0.42;
+const MAX_HEIGHT_SCALE = 1.48;
+const MAX_HEIGHT_STRETCH = 2.15;
 
 const CIVIC_USE_TAGS = new Set([
   '4_3_publicServices',
@@ -430,10 +430,24 @@ function resolveArchitecturalVariant(
   if (baseKey === '08_civic_equipment' && (floors <= 1 || heightMeters <= 5.5)) {
     return '05b_lowrise_village';
   }
+  if (baseKey === '06_casco_palace' && floors <= 1 && heightMeters <= 4.5) {
+    return '05_extremadura_traditional';
+  }
+  if (
+    (baseKey === '05_extremadura_traditional' ||
+      baseKey === '05b_lowrise_village' ||
+      baseKey === '03_chalet' ||
+      baseKey === '01_casco_house') &&
+    heightMeters >= 13.5 &&
+    district !== 'casco'
+  ) {
+    if (heightMeters >= 18.0) return '02_modern_residential';
+    if (heightMeters >= 14.5) return '07_midrise_residential';
+    return '07b_midrise_gabled';
+  }
   if (
     (baseKey === '05_extremadura_traditional' || baseKey === '01_casco_house') &&
-    district !== 'casco' &&
-    (floors <= 1 || heightMeters <= 6.8)
+    (heightMeters <= 6.5 || (district !== 'casco' && (floors <= 1 || heightMeters <= 6.8)))
   ) {
     return '05b_lowrise_village';
   }
@@ -445,12 +459,18 @@ function resolveArchitecturalVariant(
     return '05b_lowrise_village';
   }
   if (baseKey === '07_midrise_residential') {
+    if (floors <= 2 && heightMeters <= 7.5) {
+      return heightMeters <= 6.5 ? '05b_lowrise_village' : '05_extremadura_traditional';
+    }
     if (floors <= 3 || heightMeters < 12.2) {
       return Math.abs(seed) % 5 === 0 ? '04_commercial' : '07b_midrise_gabled';
     }
+    if (floors >= 6 || heightMeters >= 18.0) {
+      return Math.abs(seed) % 3 === 0 ? '02b_modern_setback' : '07_midrise_residential';
+    }
     const bucket = Math.abs(seed) % 3;
     if (bucket === 1) return '07c_midrise_attic';
-    if (bucket === 2) return '07b_midrise_gabled';
+    if (bucket === 2 && floors <= 4 && heightMeters < 14.5) return '07b_midrise_gabled';
     return '07_midrise_residential';
   }
   if (baseKey === '02_modern_residential') {
@@ -464,6 +484,7 @@ function chooseSiblingVariant(
   slotHash: number,
   district: DistrictKind,
   industrial: boolean,
+  targetHeightMeters?: number,
 ): BlenderModelKey {
   if (industrial) {
     return baseKey;
@@ -481,6 +502,9 @@ function chooseSiblingVariant(
     baseKey === '05b_lowrise_village'
   ) {
     const bucket = Math.abs(slotHash) % 3;
+    if (targetHeightMeters !== undefined && targetHeightMeters <= 7.8) {
+      return bucket === 0 ? '05_extremadura_traditional' : '05b_lowrise_village';
+    }
     if (district === 'casco') return bucket === 0 ? '05_extremadura_traditional' : '01_casco_house';
     return bucket === 0
       ? '05_extremadura_traditional'
@@ -493,6 +517,25 @@ function chooseSiblingVariant(
     baseKey === '07b_midrise_gabled' ||
     baseKey === '07c_midrise_attic'
   ) {
+    if (targetHeightMeters !== undefined && targetHeightMeters <= 7.8) {
+      return Math.abs(slotHash) % 2 === 0 ? '05b_lowrise_village' : '05_extremadura_traditional';
+    }
+    if (targetHeightMeters !== undefined && targetHeightMeters >= 18.0) {
+      const tallCycle: readonly BlenderModelKey[] = [
+        '02_modern_residential',
+        '02b_modern_setback',
+        '07_midrise_residential',
+      ];
+      return tallCycle[Math.abs(slotHash) % tallCycle.length] ?? baseKey;
+    }
+    if (targetHeightMeters !== undefined && targetHeightMeters >= 14.5) {
+      const midTallCycle: readonly BlenderModelKey[] = [
+        '07_midrise_residential',
+        '07c_midrise_attic',
+        '02b_modern_setback',
+      ];
+      return midTallCycle[Math.abs(slotHash) % midTallCycle.length] ?? baseKey;
+    }
     const cycle: readonly BlenderModelKey[] = [
       '07_midrise_residential',
       '07b_midrise_gabled',
@@ -502,11 +545,19 @@ function chooseSiblingVariant(
     return cycle[Math.abs(slotHash) % cycle.length] ?? baseKey;
   }
   if (baseKey === '04_commercial' && Math.abs(slotHash) % 3 === 0) {
+    if (targetHeightMeters !== undefined && targetHeightMeters >= 18.0) {
+      return '02b_modern_setback';
+    }
+    if (targetHeightMeters !== undefined && targetHeightMeters >= 14.5) {
+      return '07c_midrise_attic';
+    }
     return '07b_midrise_gabled';
   }
   if (baseKey === '02_modern_residential' || baseKey === '02b_modern_setback') {
     const mod = Math.abs(slotHash) % 5;
-    if (mod === 0) return '07c_midrise_attic';
+    if (mod === 0 && (targetHeightMeters === undefined || targetHeightMeters < 19.5)) {
+      return '07c_midrise_attic';
+    }
     return mod % 2 === 1 ? '02b_modern_setback' : '02_modern_residential';
   }
   return baseKey;
@@ -620,6 +671,8 @@ function computeStreetAlignedObb(
 
 interface PlacedModuleRecord {
   readonly baseId: string;
+  readonly slotGroup: string;
+  readonly ownPoints: readonly RoadPoint[];
   readonly x: number;
   readonly z: number;
   readonly radius: number;
@@ -668,7 +721,7 @@ function distToRoadCenter2d(x: number, z: number, roads: readonly ChunkFeature[]
   return Math.sqrt(minSq);
 }
 
-function minFootprintGround(
+function sampleHillsideGroundFit(
   terrain: BuiltTerrainChunk,
   cx: number,
   cz: number,
@@ -676,9 +729,32 @@ function minFootprintGround(
   vDir: RoadPoint,
   hw: number,
   hd: number,
-): number {
-  let minH = sampleHeight(terrain, cx, cz);
-  const sampleFracs: readonly [number, number][] = [
+  nominalH: number,
+  scaleY: number,
+): { y: number; scaleY: number } {
+  const ctrH = sampleHeight(terrain, cx, cz);
+  let min80 = ctrH;
+  let max80 = ctrH;
+  const bodyFracs: readonly [number, number][] = [
+    [-0.8, -0.8],
+    [0.8, -0.8],
+    [0.8, 0.8],
+    [-0.8, 0.8],
+  ];
+  for (const [fu, fv] of bodyFracs) {
+    const lu = hw * fu;
+    const lv = hd * fv;
+    const h = sampleHeight(
+      terrain,
+      cx + uDir[0] * lu + vDir[0] * lv,
+      cz + uDir[1] * lu + vDir[1] * lv,
+    );
+    if (h < min80) min80 = h;
+    if (h > max80) max80 = h;
+  }
+
+  let minOuter = min80;
+  const outerFracs: readonly [number, number][] = [
     [-0.98, -0.98],
     [0.98, -0.98],
     [0.98, 0.98],
@@ -688,15 +764,29 @@ function minFootprintGround(
     [-0.98, 0],
     [0.98, 0],
   ];
-  for (const [fu, fv] of sampleFracs) {
+  for (const [fu, fv] of outerFracs) {
     const lu = hw * fu;
     const lv = hd * fv;
-    const px = cx + uDir[0] * lu + vDir[0] * lv;
-    const pz = cz + uDir[1] * lu + vDir[1] * lv;
-    const h = sampleHeight(terrain, px, pz);
-    if (h < minH) minH = h;
+    const h = sampleHeight(
+      terrain,
+      cx + uDir[0] * lu + vDir[0] * lv,
+      cz + uDir[1] * lu + vDir[1] * lv,
+    );
+    if (h < minOuter) minOuter = h;
   }
-  return minH - 0.12;
+
+  // GLB meshes already include a stone subplinth extending down ~0.72 * scaleY below origin.
+  // Anchor inside [min80 - 0.55*scaleY, min80 - 0.04] so downhill never floats while avoiding excess sinking.
+  const subplinthReach = Math.max(0.16, Math.min(0.58, 0.55 * scaleY));
+  const y = Math.min(min80 - 0.04, Math.max(minOuter - 0.04, min80 - subplinthReach));
+
+  // On steep hillsides, extend the downhill retaining basement/mass upward so no roof disappears under uphill terrain.
+  let adjustedScaleY = scaleY;
+  const renderedH = nominalH * adjustedScaleY;
+  if (y + renderedH < max80 + 2.2) {
+    adjustedScaleY = Math.max(adjustedScaleY, (max80 - y + 2.25) / nominalH);
+  }
+  return { y, scaleY: adjustedScaleY };
 }
 
 function computeProportionallySafeScales(
@@ -705,8 +795,9 @@ function computeProportionallySafeScales(
   targetH: number,
   spec: BlenderNominalSpec,
 ): { scaleX: number; scaleY: number; scaleZ: number } {
-  let sx = clamp(targetW / spec.nominalWidthMeters, MIN_XZ_SCALE, MAX_XZ_SCALE);
-  let sz = clamp(targetD / spec.nominalDepthMeters, MIN_XZ_SCALE, MAX_XZ_SCALE);
+  const minXZ = targetW < 5.5 || targetD < 5.5 ? 0.36 : MIN_XZ_SCALE;
+  let sx = clamp(targetW / spec.nominalWidthMeters, minXZ, MAX_XZ_SCALE);
+  let sz = clamp(targetD / spec.nominalDepthMeters, minXZ, MAX_XZ_SCALE);
   let sy = clamp(targetH / spec.nominalHeightMeters, MIN_HEIGHT_SCALE, MAX_HEIGHT_SCALE);
 
   // Prevent grotesque horizontal squash/stretch ratio between width & depth
@@ -767,7 +858,7 @@ function emitFittedModulesAlongSpan(
       const isPrimaryStreetCorner = iu === primaryU && iv === countV - 1;
       const modKey = isPrimaryStreetCorner
         ? baseKey
-        : chooseSiblingVariant(baseKey, seed + slotIdx * 17, district, industrial);
+        : chooseSiblingVariant(baseKey, seed + slotIdx * 17, district, industrial, resolvedTargetH);
       const spec = BLENDER_MODEL_SPECS[modKey];
       const uOff = -spanW * 0.5 + modW * (iu + 0.5);
       const vOff = -spanD * 0.5 + modD * (iv + 0.5);
@@ -798,12 +889,31 @@ function emitFittedModulesAlongSpan(
       const actualHd = spec.nominalDepthMeters * scales.scaleZ * 0.5;
       const modRadius = Math.min(actualHw, actualHd);
 
-      // Avoid heavy overlapping clones from duplicate/adjacent OSM polygons
+      // Avoid heavy overlapping clones from duplicate/adjacent OSM polygons and colliding subparts
       let overlapsOther = false;
       for (const prev of guard.placed) {
-        if (prev.baseId === guard.baseId) continue;
+        if (prev.slotGroup === buildingId) continue;
         const dist = Math.hypot(mx - prev.x, mz - prev.z);
-        if (dist < Math.min(modRadius, prev.radius) * 0.82 || dist < 3.0) {
+        if (prev.baseId === guard.baseId) {
+          if (dist < Math.min(modRadius, prev.radius) * 0.65 || dist < 2.2) {
+            overlapsOther = true;
+            break;
+          }
+          continue;
+        }
+        const compactPartyWalls = modRadius < 2.55 && prev.radius < 2.55;
+        const threshold = compactPartyWalls
+          ? (modRadius + prev.radius) * 0.72
+          : Math.max(2.95, Math.min(modRadius, prev.radius) * 0.8);
+        if (dist < threshold) {
+          overlapsOther = true;
+          break;
+        }
+        if (
+          dist < modRadius + prev.radius * 0.65 &&
+          pointInsidePolygon2d(mx, mz, prev.ownPoints) &&
+          pointInsidePolygon2d(prev.x, prev.z, guard.ownPoints)
+        ) {
           overlapsOther = true;
           break;
         }
@@ -820,18 +930,37 @@ function emitFittedModulesAlongSpan(
         continue;
       }
 
-      const y = minFootprintGround(terrain, mx, mz, uDir, vDir, actualHw, actualHd);
+      const fitted = sampleHillsideGroundFit(
+        terrain,
+        mx,
+        mz,
+        uDir,
+        vDir,
+        actualHw,
+        actualHd,
+        spec.nominalHeightMeters,
+        scales.scaleY,
+      );
       out.push({
         buildingId: `${buildingId}#m${slotIdx}`,
         modelKey: modKey,
         x: mx,
-        y,
+        y: fitted.y,
         z: mz,
         heading: modHeading,
-        ...scales,
+        scaleX: scales.scaleX,
+        scaleY: fitted.scaleY,
+        scaleZ: scales.scaleZ,
         tint: pickDistrictTint(district, seed + slotIdx * 29),
       });
-      guard.placed.push({ baseId: guard.baseId, x: mx, z: mz, radius: modRadius });
+      guard.placed.push({
+        baseId: guard.baseId,
+        slotGroup: buildingId,
+        ownPoints: guard.ownPoints,
+        x: mx,
+        z: mz,
+        radius: modRadius,
+      });
     }
   }
 }
@@ -895,10 +1024,13 @@ export function buildBlenderGeoPlacements(
     if (area < 9.0) continue;
     if (INDUSTRIAL_SKIP_TYPES.has(btype) && area < 35) continue;
 
-    // Single-owner chunk check: prevents cross-chunk duplicate placement on straddling lots
+    // Single-owner chunk check: prevents cross-chunk duplicate placement on straddling lots while still suppressing clipped procedural slices in neighboring chunks inside the 3,840 m world grid
     const isOwner = cx >= bounds.minX && cx < bounds.maxX && cz >= bounds.minZ && cz < bounds.maxZ;
-    handledBuildingIds.add(feature.id ?? '');
+    if (Math.abs(cx) < 3840 && Math.abs(cz) < 3840) {
+      handledBuildingIds.add(feature.id ?? '');
+    }
     if (!isOwner) continue;
+    handledBuildingIds.add(feature.id ?? '');
 
     const obb = computeStreetAlignedObb(
       feature.points,
@@ -1010,7 +1142,7 @@ export function buildBlenderGeoPlacements(
             `${id}_w${wIdx}`,
             wIdx === 0
               ? baseKey
-              : chooseSiblingVariant(baseKey, seed + wIdx * 7, district, industrial),
+              : chooseSiblingVariant(baseKey, seed + wIdx * 7, district, industrial, heightMeters),
             district,
             industrial,
             wCx,
@@ -1060,7 +1192,7 @@ export function buildBlenderGeoPlacements(
         );
         const pKey =
           pIdx > 0 && resolvedPartKey === '08_civic_equipment' && !industrial
-            ? chooseSiblingVariant('08_civic_equipment', seed + pIdx * 19, district, false)
+            ? chooseSiblingVariant('08_civic_equipment', seed + pIdx * 19, district, false, pHeight)
             : resolvedPartKey;
         const countBefore = placements.length;
         emitFittedModulesAlongSpan(

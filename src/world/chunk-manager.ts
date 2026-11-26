@@ -9,6 +9,7 @@ import { ChunkDebugOverlays } from './debug-overlays';
 import { BuildingRenderer } from './building-renderer';
 import {
   BlenderBuildingRenderer,
+  type BlenderChunkLod2Batch,
   type BlenderQuadrantCell,
   type BlenderShadowMode,
 } from './blender-building-renderer';
@@ -136,9 +137,8 @@ interface ChunkRecord {
   buildingMeshes?: THREE.Mesh[][];
   buildingDetailMeshes?: THREE.Mesh[][];
   blenderCells?: BlenderQuadrantCell[];
-  blenderChunkLod2?: THREE.Mesh[];
-  blenderChunkLod2Active?: boolean;
-  blenderChunkLod2Shadow?: boolean;
+  blenderLod2Batch?: BlenderChunkLod2Batch;
+  blenderLod2InScene?: boolean;
   decorationMeshes?: THREE.Mesh[];
   landmarkObjects?: THREE.Object3D[];
   storks?: THREE.Group[];
@@ -711,6 +711,11 @@ export class ChunkManager {
     }
     for (const stork of record.storks ?? []) stork.visible = lod === 0;
     for (const sign of record.signs ?? []) sign.visible = lod === 0;
+    for (const mesh of record.decorationMeshes ?? []) {
+      if (mesh instanceof THREE.InstancedMesh) {
+        mesh.castShadow = mesh.userData.initialCastShadow === true && lod === 0;
+      }
+    }
     this.syncDebugOverlays(record);
   }
 
@@ -742,12 +747,6 @@ export class ChunkManager {
         }
       }
       for (const cell of record.blenderCells ?? []) {
-        if (record.blenderChunkLod2Active) {
-          lod2Cells += 1;
-          if (record.blenderChunkLod2Shadow) shadowLod2Cells += 1;
-          else shadowCulledCells += 1;
-          continue;
-        }
         if (cell.activeLod === 0) lod0Cells += 1;
         else if (cell.activeLod === 1) lod1Cells += 1;
         else if (cell.activeLod === 2) lod2Cells += 1;
@@ -778,63 +777,10 @@ export class ChunkManager {
     const cells = record.blenderCells;
     if (!cells || cells.length === 0) return;
     const cfg = SHADOW_PROFILE_CONFIGS[this.shadowProfile];
-    const chunkLod2 = record.blenderChunkLod2;
+    const lod2Batch = record.blenderLod2Batch;
 
-    let anyNearCell = false;
-    for (const cell of cells) {
-      const dx = Math.max(0, Math.abs(camX - cell.centerX) - cell.halfExtentX);
-      const dz = Math.max(0, Math.abs(camZ - cell.centerZ) - cell.halfExtentZ);
-      if (Math.hypot(dx, dz) < cfg.lod1RadiusMeters) {
-        anyNearCell = true;
-        break;
-      }
-    }
-
-    if (!anyNearCell && chunkLod2 && chunkLod2.length > 0) {
-      const b = record.entry.bounds;
-      const chunkDx = Math.max(b.minX - camX, 0, camX - b.maxX);
-      const chunkDz = Math.max(b.minZ - camZ, 0, camZ - b.maxZ);
-      const chunkShadow = Math.hypot(chunkDx, chunkDz) < cfg.shadowCutoffMeters;
-      if (!record.blenderChunkLod2Active || record.blenderChunkLod2Shadow !== chunkShadow) {
-        for (const cell of cells) {
-          if (cell.activeLod !== -1) {
-            for (const mesh of cell.lods[cell.activeLod]) {
-              mesh.visible = false;
-              mesh.castShadow = false;
-              this.scene.remove(mesh);
-            }
-            cell.activeLod = -1;
-          }
-          if (cell.activeShadowMode !== 'none') {
-            for (const proxy of cell.shadowProxies) {
-              if (proxy.visible) {
-                proxy.visible = false;
-                this.scene.remove(proxy);
-              }
-            }
-            cell.activeShadowMode = 'none';
-          }
-        }
-        for (const mesh of chunkLod2) {
-          mesh.visible = true;
-          mesh.castShadow = chunkShadow;
-          if (!record.blenderChunkLod2Active) this.scene.add(mesh);
-        }
-        record.blenderChunkLod2Active = true;
-        record.blenderChunkLod2Shadow = chunkShadow;
-      }
-      return;
-    }
-
-    if (record.blenderChunkLod2Active && chunkLod2) {
-      for (const mesh of chunkLod2) {
-        mesh.visible = false;
-        mesh.castShadow = false;
-        this.scene.remove(mesh);
-      }
-      record.blenderChunkLod2Active = false;
-      record.blenderChunkLod2Shadow = false;
-    }
+    let lod2Mask = 0;
+    let anyLod2Shadow = false;
 
     for (const cell of cells) {
       const dx = Math.max(0, Math.abs(camX - cell.centerX) - cell.halfExtentX);
@@ -852,21 +798,55 @@ export class ChunkManager {
             ? cfg.lod1ShadowMode
             : 'lod2';
 
-      if (cell.activeLod !== targetLod) {
+      if (targetLod === 2 && lod2Batch) {
+        lod2Mask |= 1 << cell.cellIndex;
+        if (inShadowRange) anyLod2Shadow = true;
+
+        // Hide individual cell meshes because the chunk-level LOD2 batch renders this subcell
+        if (cell.activeLod !== -1) {
+          for (const mesh of cell.lods[cell.activeLod]) {
+            if (mesh.visible) {
+              mesh.visible = false;
+              mesh.castShadow = false;
+              this.scene.remove(mesh);
+            }
+          }
+        }
+        if (cell.activeShadowMode === 'proxy') {
+          for (const proxy of cell.shadowProxies) {
+            if (proxy.visible) {
+              proxy.visible = false;
+              this.scene.remove(proxy);
+            }
+          }
+        }
+        cell.activeLod = 2;
+        cell.activeShadowMode = targetShadowMode;
+        continue;
+      }
+
+      const switchingFromBatchedLod2 =
+        lod2Batch !== undefined && cell.activeLod === 2 && cell.lods[2].every((m) => !m.visible);
+
+      if (cell.activeLod !== targetLod || switchingFromBatchedLod2) {
         if (cell.activeLod !== -1) {
           for (const mesh of cell.lods[cell.activeLod]) {
             mesh.visible = false;
+            mesh.castShadow = false;
             this.scene.remove(mesh);
           }
         }
         cell.activeLod = targetLod;
+        const activeShadowDirect =
+          targetShadowMode === 'lod0' || targetShadowMode === 'lod1' || targetShadowMode === 'lod2';
         for (const mesh of cell.lods[targetLod] ?? []) {
           mesh.visible = true;
+          mesh.castShadow = activeShadowDirect && mesh.userData.noShadowCast !== true;
           this.scene.add(mesh);
         }
       }
 
-      if (cell.activeShadowMode !== targetShadowMode) {
+      if (cell.activeShadowMode !== targetShadowMode || switchingFromBatchedLod2) {
         const useProxy = targetShadowMode === 'proxy';
         for (const proxy of cell.shadowProxies) {
           if (useProxy && !proxy.visible) {
@@ -880,12 +860,23 @@ export class ChunkManager {
         const activeShadowDirect =
           targetShadowMode === 'lod0' || targetShadowMode === 'lod1' || targetShadowMode === 'lod2';
         for (const mesh of cell.lods[targetLod] ?? []) {
-          mesh.castShadow = activeShadowDirect;
+          mesh.castShadow = activeShadowDirect && mesh.userData.noShadowCast !== true;
         }
         if (targetLod !== 0) for (const mesh of cell.lods[0]) mesh.castShadow = false;
         if (targetLod !== 1) for (const mesh of cell.lods[1]) mesh.castShadow = false;
         if (targetLod !== 2) for (const mesh of cell.lods[2]) mesh.castShadow = false;
         cell.activeShadowMode = targetShadowMode;
+      }
+    }
+
+    if (lod2Batch) {
+      this.blenderBuildings.updateChunkLod2Batch(lod2Batch, lod2Mask, anyLod2Shadow);
+      if (lod2Mask !== 0 && !record.blenderLod2InScene) {
+        for (const mesh of lod2Batch.meshes) this.scene.add(mesh);
+        record.blenderLod2InScene = true;
+      } else if (lod2Mask === 0 && record.blenderLod2InScene) {
+        for (const mesh of lod2Batch.meshes) this.scene.remove(mesh);
+        record.blenderLod2InScene = false;
       }
     }
   }
@@ -928,7 +919,13 @@ export class ChunkManager {
           ...this.cityKit.createRoadPropMeshes(item.result.roads, centerX, centerZ, record.lod),
         );
       }
-      for (const mesh of decorationMeshes) this.scene.add(mesh);
+      for (const mesh of decorationMeshes) {
+        if (mesh instanceof THREE.InstancedMesh) {
+          mesh.userData.initialCastShadow = mesh.castShadow;
+          mesh.castShadow = mesh.castShadow && record.lod === 0;
+        }
+        this.scene.add(mesh);
+      }
       const preserveMonumentShadows =
         this.effectiveBuildingPipeline === 'blender-library' ||
         DETAIL_BUDGET_CONFIGS[this.detailBudget].lod0CastShadowDirect;
@@ -958,9 +955,9 @@ export class ChunkManager {
       const blenderCells = this.blenderBuildings.isReady
         ? this.blenderBuildings.createQuadrantCells(item.result.buildings, record.entry.bounds)
         : [];
-      const blenderChunkLod2 = this.blenderBuildings.isReady
-        ? this.blenderBuildings.createChunkLod2Meshes(item.result.buildings)
-        : [];
+      const blenderLod2Batch = this.blenderBuildings.isReady
+        ? this.blenderBuildings.createChunkLod2Batch(item.result.buildings, record.entry.bounds)
+        : undefined;
       record.result = item.result;
       record.footprintIndex = item.result.buildings
         ? createFootprintIndex(item.result.buildings.footprints, record.entry.bounds)
@@ -971,7 +968,8 @@ export class ChunkManager {
       record.buildingMeshes = buildingMeshes;
       record.buildingDetailMeshes = buildingDetailMeshes;
       record.blenderCells = blenderCells;
-      record.blenderChunkLod2 = blenderChunkLod2;
+      record.blenderLod2Batch = blenderLod2Batch;
+      record.blenderLod2InScene = false;
       this.syncBlenderCellLods(record, this.lastCameraX, this.lastCameraZ);
       record.decorationMeshes = decorationMeshes;
       record.storks = (item.result.buildings?.storks ?? []).map((instance) => {
@@ -1234,10 +1232,11 @@ export class ChunkManager {
         }
       }
     }
-    if (record.blenderChunkLod2) {
-      for (const mesh of record.blenderChunkLod2) {
+    if (record.blenderLod2Batch) {
+      for (const mesh of record.blenderLod2Batch.meshes) {
         this.scene.remove(mesh);
-        if (mesh.geometry.userData.sharedGeometry !== true) mesh.geometry.dispose();
+        if (mesh instanceof THREE.BatchedMesh) mesh.dispose();
+        else if (mesh.geometry.userData.sharedGeometry !== true) mesh.geometry.dispose();
       }
     }
     if (record.landmarkObjects)
