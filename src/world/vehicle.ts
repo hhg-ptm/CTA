@@ -7,6 +7,31 @@ import { createSedanBodyGeometry, createWheelArchGeometry } from './npc-models';
 
 const CAR_COLOR = 0xc94a3a;
 const WHEEL_COLOR = 0x1a1a1a;
+const MAX_SPEED_MPS = 30;
+const MIN_STEERING_ANGLE = 0.16;
+const MAX_STEERING_ANGLE = 0.5;
+
+export interface VehicleDriveInput {
+  readonly forward: boolean;
+  readonly backward: boolean;
+  readonly left: boolean;
+  readonly right: boolean;
+  readonly handbrake: boolean;
+}
+
+export const NEUTRAL_DRIVE_INPUT: VehicleDriveInput = {
+  forward: false,
+  backward: false,
+  left: false,
+  right: false,
+  handbrake: false,
+};
+
+/** Steering narrows with speed so the GT stays controllable at 100 km/h. */
+export function steeringLimitForSpeed(speedMps: number): number {
+  const ratio = Math.min(Math.max(speedMps, 0) / 24, 1);
+  return MAX_STEERING_ANGLE + (MIN_STEERING_ANGLE - MAX_STEERING_ANGLE) * ratio;
+}
 
 export class Vehicle {
   readonly group: THREE.Group;
@@ -18,6 +43,7 @@ export class Vehicle {
   private readonly brakeLightMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly proceduralParts: THREE.Object3D[] = [];
   private readonly world: World;
+  private smoothedSteering = 0;
 
   constructor(world: World, x: number, y: number, z: number, heading = 0, color = CAR_COLOR) {
     this.world = world;
@@ -32,7 +58,8 @@ export class Vehicle {
       .setTranslation(x, y + 0.82, z)
       .setRotation({ x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) })
       .setLinearDamping(0.8)
-      .setAngularDamping(4.0);
+      .setAngularDamping(4.0)
+      .setCcdEnabled(true);
     this.chassisBody = world.createRigidBody(chassisDesc);
     const colliderDesc = RAPIER.ColliderDesc.cuboid(0.9, 0.35, 2.0).setMass(1200).setFriction(0.7);
     world.createCollider(colliderDesc, this.chassisBody);
@@ -273,42 +300,50 @@ export class Vehicle {
     }
   }
 
-  update(
-    deltaSeconds: number,
-    input: {
-      forward: boolean;
-      backward: boolean;
-      left: boolean;
-      right: boolean;
-      handbrake: boolean;
-    },
-  ): void {
+  /** Applies controls only; the physics world is stepped once by VehicleSimulation. */
+  update(deltaSeconds: number, input: VehicleDriveInput): void {
     const steer = (input.left ? 1 : 0) - (input.right ? 1 : 0);
-    const steeringAngle = steer * 0.5;
-    this.controller.setWheelSteering(0, steeringAngle);
-    this.controller.setWheelSteering(1, steeringAngle);
+    const targetSteering = steer * steeringLimitForSpeed(this.speed);
+    this.smoothedSteering +=
+      (targetSteering - this.smoothedSteering) * Math.min(1, deltaSeconds * 9);
+    this.controller.setWheelSteering(0, this.smoothedSteering);
+    this.controller.setWheelSteering(1, this.smoothedSteering);
 
     // Rapier's positive engine force pushes along -Z, while the GT's nose is +Z.
-    const engine = input.forward ? -4000 : input.backward ? 2000 : 0;
+    // Throttle tapers near the top speed so the car no longer keeps accelerating
+    // into wall contacts at 150 km/h.
+    const forwardSpeed = this.forwardSpeed();
+    const throttleScale = 1 - Math.min(Math.abs(forwardSpeed) / MAX_SPEED_MPS, 1) * 0.8;
+    const engine =
+      input.forward && forwardSpeed < MAX_SPEED_MPS
+        ? -4000 * throttleScale
+        : input.backward && forwardSpeed > -8
+          ? 2000
+          : 0;
     this.controller.setWheelEngineForce(2, engine);
     this.controller.setWheelEngineForce(3, engine);
 
     const brake = input.handbrake ? 60 : input.backward && !input.forward ? 30 : 0;
     for (let i = 0; i < 4; i += 1) this.controller.setWheelBrake(i, brake);
+    // Rear slip drops under handbrake so the chassis rotates instead of gripping.
+    const rearSlip = input.handbrake ? 1.6 : 4.5;
+    this.controller.setWheelFrictionSlip(2, rearSlip);
+    this.controller.setWheelFrictionSlip(3, rearSlip);
 
     this.controller.updateVehicle(deltaSeconds);
     const braking = input.handbrake || (input.backward && !input.forward);
     for (const material of this.brakeLightMaterials)
       material.emissiveIntensity = braking ? 2.2 : 0.12;
-    // Rapier's vehicle controller only changes velocities; stepping the world is
-    // what integrates the chassis and resolves contacts with terrain, buildings
-    // and the kinematic agent colliders.
-    this.world.step();
+  }
 
+  /** Runs after the single world step. Returns true when a contact was clamped. */
+  postPhysics(): boolean {
+    let clamped = false;
     // Prevent physical launch into the sky on curb or trimesh penetration.
     const linvel = this.chassisBody.linvel();
     if (linvel.y > 4.5) {
       this.chassisBody.setLinvel({ x: linvel.x, y: 4.5, z: linvel.z }, true);
+      clamped = true;
     }
     const angvel = this.chassisBody.angvel();
     if (Math.abs(angvel.x) > 3.0 || Math.abs(angvel.z) > 3.0) {
@@ -320,6 +355,7 @@ export class Vehicle {
         },
         true,
       );
+      clamped = true;
     }
 
     // Sync visual mesh.
@@ -344,6 +380,13 @@ export class Vehicle {
         hardpoint.z,
       );
     }
+    return clamped;
+  }
+
+  private forwardSpeed(): number {
+    const velocity = this.chassisBody.linvel();
+    const heading = this.heading;
+    return velocity.x * Math.sin(heading) + velocity.z * Math.cos(heading);
   }
 
   get position(): THREE.Vector3 {
@@ -364,6 +407,7 @@ export class Vehicle {
     this.chassisBody.setRotation(rotation, true);
     this.chassisBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
     this.chassisBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    this.smoothedSteering = 0;
     this.group.position.set(x, y + 0.82, z);
     this.group.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
   }

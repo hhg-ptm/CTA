@@ -12,6 +12,8 @@ export interface GraphSegment {
   readonly drivable: boolean;
   readonly forwardAllowed: boolean;
   readonly reverseAllowed: boolean;
+  /** True for a one-way closed OSM way that forms a roundabout. */
+  readonly roundabout: boolean;
 }
 
 export interface NearestSegment {
@@ -99,7 +101,9 @@ export class RoadGraph {
   readonly segments: GraphSegment[] = [];
   readonly nodeX: Float32Array;
   readonly nodeZ: Float32Array;
+  readonly roundaboutNodes: Uint8Array;
   private readonly nodeIndex = new Map<string, number>();
+  private readonly graphIndexByRaw = new Map<number, number>();
   private readonly vehicleOut: number[][] = [];
   private readonly pedestrianOut: number[][] = [];
   private readonly segmentCells = new Map<number, number[]>();
@@ -115,6 +119,7 @@ export class RoadGraph {
     this.segmentCount = network.segments.length;
     this.nodeX = new Float32Array(this.nodeCount);
     this.nodeZ = new Float32Array(this.nodeCount);
+    this.roundaboutNodes = new Uint8Array(this.nodeCount);
     this.costs = new Float64Array(this.nodeCount);
     this.costStamps = new Uint32Array(this.nodeCount);
     this.previous = new Int32Array(this.nodeCount);
@@ -129,25 +134,46 @@ export class RoadGraph {
       this.pedestrianOut.push([]);
     }
 
-    for (let i = 0; i < this.segmentCount; i += 1) {
-      const raw = network.segments[i];
+    // Validate endpoints once so roundabout detection and segment construction
+    // share the same index mapping.
+    const validRawIndices: number[] = [];
+    for (let rawIndex = 0; rawIndex < this.segmentCount; rawIndex += 1) {
+      const raw = network.segments[rawIndex];
       if (!raw) continue;
       const from = this.nodeIndex.get(raw.fromNode);
       const to = this.nodeIndex.get(raw.toNode);
       if (from === undefined || to === undefined || from === to) continue;
+      validRawIndices.push(rawIndex);
+      this.graphIndexByRaw.set(rawIndex, this.segments.length);
+    }
+    const roundabouts = this.detectRoundabouts(network, validRawIndices);
+
+    for (const rawIndex of validRawIndices) {
+      const raw = network.segments[rawIndex];
+      if (!raw) continue;
+      const from = this.nodeIndex.get(raw.fromNode);
+      const to = this.nodeIndex.get(raw.toNode);
+      if (from === undefined || to === undefined) continue;
+      const roundabout = roundabouts.has(this.graphIndexByRaw.get(rawIndex) ?? -1);
+      const baseSpeed = vehicleSpeed(raw);
       const segment: GraphSegment = {
         id: raw.id,
         from,
         to,
         length: Math.max(raw.lengthMeters, 0.01),
-        speed: vehicleSpeed(raw),
+        speed: roundabout ? Math.min(baseSpeed, 5.5) : baseSpeed,
         walkable: raw.walkable,
         drivable: raw.laneCount > 0,
         forwardAllowed: raw.forwardAllowed,
         reverseAllowed: raw.reverseAllowed,
+        roundabout,
       };
       const index = this.segments.length;
       this.segments.push(segment);
+      if (roundabout) {
+        this.roundaboutNodes[from] = 1;
+        this.roundaboutNodes[to] = 1;
+      }
       if (segment.walkable) {
         this.pedestrianOut[from]?.push(index * 2);
         this.pedestrianOut[to]?.push(index * 2 + 1);
@@ -177,6 +203,14 @@ export class RoadGraph {
 
   edgeSegment(edge: number): number {
     return edge >> 1;
+  }
+
+  isRoundaboutEdge(edge: number): boolean {
+    return this.segments[edge >> 1]?.roundabout === true;
+  }
+
+  isRoundaboutNode(node: number): boolean {
+    return this.roundaboutNodes[node] === 1;
   }
 
   outgoingEdges(node: number, mode: AgentMode): readonly number[] {
@@ -257,6 +291,76 @@ export class RoadGraph {
       }
     }
     return [];
+  }
+
+  /**
+   * OSM encodes roundabout circulation as a short, one-way closed way. Detecting
+   * that topology locally avoids inventing a junction tag and keeps the AI from
+   * treating every segment of a roundabout as a fresh intersection.
+   */
+  private detectRoundabouts(network: RoadNetwork, validRawIndices: readonly number[]): Set<number> {
+    const byWay = new Map<string, number[]>();
+    for (const rawIndex of validRawIndices) {
+      const raw = network.segments[rawIndex];
+      if (!raw) continue;
+      const group = byWay.get(raw.wayId) ?? [];
+      group.push(rawIndex);
+      byWay.set(raw.wayId, group);
+    }
+
+    const result = new Set<number>();
+    for (const candidates of byWay.values()) {
+      if (candidates.length < 4 || candidates.length > 40) continue;
+      let totalLength = 0;
+      const drivable = candidates.every((rawIndex) => {
+        const raw = network.segments[rawIndex];
+        if (!raw || raw.laneCount <= 0 || raw.oneWay === 0) return false;
+        totalLength += raw.lengthMeters;
+        return true;
+      });
+      if (!drivable || totalLength < 20 || totalLength > 400) continue;
+
+      const incident = new Map<string, number[]>();
+      for (const rawIndex of candidates) {
+        const raw = network.segments[rawIndex];
+        if (!raw) continue;
+        const from = incident.get(raw.fromNode) ?? [];
+        from.push(rawIndex);
+        incident.set(raw.fromNode, from);
+        const to = incident.get(raw.toNode) ?? [];
+        to.push(rawIndex);
+        incident.set(raw.toNode, to);
+      }
+
+      const start = network.segments[candidates[0] ?? -1]?.fromNode;
+      if (start === undefined) continue;
+      const used = new Set<number>();
+      let current = start;
+      let direction = 0;
+      let closed = false;
+      while (used.size <= candidates.length) {
+        const next = (incident.get(current) ?? []).find((index) => !used.has(index));
+        if (next === undefined) break;
+        used.add(next);
+        const raw = network.segments[next];
+        if (!raw) break;
+        const step = raw.fromNode === current ? 1 : -1;
+        if (direction === 0) direction = step;
+        else if (step !== direction) break;
+        current = step === 1 ? raw.toNode : raw.fromNode;
+        if (current === start) {
+          closed = true;
+          break;
+        }
+      }
+      if (!closed || used.size !== candidates.length) continue;
+
+      for (const rawIndex of candidates) {
+        const graphIndex = this.graphIndexByRaw.get(rawIndex);
+        if (graphIndex !== undefined) result.add(graphIndex);
+      }
+    }
+    return result;
   }
 
   private accepts(segment: GraphSegment, mode: AgentMode): boolean {
