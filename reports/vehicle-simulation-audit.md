@@ -115,10 +115,11 @@ de una prueba con GPU.
 
 - El contrato es propuesto: Gemini B debe confirmarlo antes de que misiones u
   oficios lo consuman.
-- `spawnServiceVehicle` sigue sin crear modelos hasta que se registren GLB de
-  autobús y scooter con licencia y atribución explícitas.
+- `spawnServiceVehicle` devuelve `null` para autobús y scooter hasta que se
+  registren modelos GLB CC0 con licencia y atribución explícitas. Los modelos
+  disponibles actualmente están documentados en `docs/vehicle-simulation-api.md#7-limitaciones-y-pendientes`.
 - La detección de glorietas depende de que el way OSM esté cerrado y sea de un
-  solo sentido; las de dos sentidos se ignoran deliberadamente para no inventar
-  circulación.
+  solo sentido; las glorietas de dos sentidos no se detectan intencionalmente
+  para no inventar circulación.
 - No se han tocado `src/gameplay/**`, `src/ui/jobs/**`, `src/ui/economy/**`,
   `src/world/building*.ts`, `public/world/**` ni el sistema de delitos.
