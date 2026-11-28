@@ -169,3 +169,31 @@ La capa de integración puede exponer, sin ampliar la API de gameplay:
 
 Estas métricas son del subsistema. No implican cambiar el objetivo global de
 600.000 triángulos ni de 300 draw calls; Gemini A mantiene la medición global.
+
+## 7. Limitaciones y pendientes
+
+### Spawn de vehículos de servicio
+
+El spawn de autobuses y scooters requiere un descriptor GLB registrado y que la
+capa de integración suministre la carga del modelo. Hoy no hay descriptores de
+estos tipos y `spawnServiceVehicle` devuelve `null` incluso con permiso, para no
+fabricar geometría procedural. Los modelos CC0 disponibles en
+`public/models/vehicles/` son:
+
+- `caceres-gt.glb` (coche jugable, 21.782 triángulos)
+- `caceres-gt-traffic.glb` (tráfico, 1.691 triángulos)
+- `caceres-gt-police.glb` (patrullas, 1.775 triángulos)
+- `caceres-sedan.glb` (referencia CC0 de Kenney, 2.032 triángulos; fallback)
+
+### Detección de glorietas
+
+La detección de glorietas se basa exclusivamente en la topología OSM:
+ways cerrados, de un solo sentido, con 4-40 segmentos y 20-400 m. Las
+glorietas de dos sentidos no se detectan intencionalmente para no inventar
+circulación. Las velocidades en glorietas se limitan a 5.5 m/s.
+
+### Población ambiental
+
+Los agentes ambientales se generan cuando hay huecos en la población y siempre
+detrás de la cámara (`NpcSystem.spawn`), para evitar apariciones visibles. El
+contrato de misiones no incluye aún audio de motor ni efectos de colisión.
